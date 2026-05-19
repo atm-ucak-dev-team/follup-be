@@ -1,3 +1,8 @@
+commit-msg:
+  jobs:
+    - script: "validate.sh"
+      runner: sh
+
 pre-commit:
   jobs:
     - script: "checks.sh"
