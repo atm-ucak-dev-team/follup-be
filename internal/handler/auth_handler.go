@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
-	"github.com/bomanarakasura/jira-email-automation/internal/service"
+	"github.com/atm-ucak/follup/internal/service"
 )
 
 // AuthHandler handles authentication-related HTTP requests

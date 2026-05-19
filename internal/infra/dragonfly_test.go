@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bomanarakasura/jira-email-automation/internal/domain"
+	"github.com/atm-ucak/follup/internal/domain"
 )
 
 const (

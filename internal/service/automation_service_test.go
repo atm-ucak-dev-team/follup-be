@@ -7,8 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/bomanarakasura/jira-email-automation/internal/domain"
-	service2 "github.com/bomanarakasura/jira-email-automation/internal/service"
+	"github.com/atm-ucak/follup/internal/domain"
+	service2 "github.com/atm-ucak/follup/internal/service"
 )
 
 // MockAutomationRuleRepository is a mock for testing

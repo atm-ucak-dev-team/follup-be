@@ -8,8 +8,8 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/bomanarakasura/jira-email-automation/internal/domain"
-	"github.com/bomanarakasura/jira-email-automation/internal/repository"
+	"github.com/atm-ucak/follup/internal/domain"
+	"github.com/atm-ucak/follup/internal/repository"
 )
 
 // JiraServiceImpl implements the JiraService interface

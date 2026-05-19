@@ -9,9 +9,9 @@ import (
 
 	"github.com/emersion/go-imap"
 	"github.com/emersion/go-imap/client"
-	"github.com/bomanarakasura/jira-email-automation/internal/domain"
-	"github.com/bomanarakasura/jira-email-automation/internal/repository"
-	"github.com/bomanarakasura/jira-email-automation/internal/service"
+	"github.com/atm-ucak/follup/internal/domain"
+	"github.com/atm-ucak/follup/internal/repository"
+	"github.com/atm-ucak/follup/internal/service"
 )
 
 // Poller handles background IMAP polling for email replies

@@ -7,7 +7,7 @@ import (
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
-	"github.com/bomanarakasura/jira-email-automation/internal/domain"
+	"github.com/atm-ucak/follup/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

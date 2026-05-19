@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bomanarakasura/jira-email-automation/internal/domain"
-	"github.com/bomanarakasura/jira-email-automation/internal/infra"
+	"github.com/atm-ucak/follup/internal/domain"
+	"github.com/atm-ucak/follup/internal/infra"
 	"github.com/redis/go-redis/v9"
 )
 

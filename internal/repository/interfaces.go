@@ -2,7 +2,7 @@ package repository
 
 import (
 	"context"
-	"github.com/bomanarakasura/jira-email-automation/internal/domain"
+	"github.com/atm-ucak/follup/internal/domain"
 )
 
 // UserRepository defines the interface for user data operations

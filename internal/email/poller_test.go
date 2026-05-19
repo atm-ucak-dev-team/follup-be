@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/bomanarakasura/jira-email-automation/internal/domain"
+	"github.com/atm-ucak/follup/internal/domain"
 )
 
 // Mock implementations for testing

@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/bomanarakasura/jira-email-automation/internal/domain"
+	"github.com/atm-ucak/follup/internal/domain"
 )
 
 func TestLoadConfig_Success(t *testing.T) {

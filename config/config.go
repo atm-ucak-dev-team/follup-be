@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/spf13/viper"
-	"github.com/bomanarakasura/jira-email-automation/internal/domain"
+	"github.com/atm-ucak/follup/internal/domain"
 )
 
 // LoadConfig loads configuration from .env file and environment variables

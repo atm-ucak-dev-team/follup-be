@@ -3,8 +3,8 @@ package dragonfly
 import (
 	"context"
 	"github.com/redis/go-redis/v9"
-	"github.com/bomanarakasura/jira-email-automation/internal/domain"
-	"github.com/bomanarakasura/jira-email-automation/internal/infra"
+	"github.com/atm-ucak/follup/internal/domain"
+	"github.com/atm-ucak/follup/internal/infra"
 )
 
 // EmailCredentialRepositoryImpl implements EmailCredentialRepository

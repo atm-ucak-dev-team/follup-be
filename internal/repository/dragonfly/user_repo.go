@@ -7,8 +7,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
-	"github.com/bomanarakasura/jira-email-automation/internal/domain"
-	"github.com/bomanarakasura/jira-email-automation/internal/infra"
+	"github.com/atm-ucak/follup/internal/domain"
+	"github.com/atm-ucak/follup/internal/infra"
 )
 
 // UserRepository implements repository.UserRepository interface

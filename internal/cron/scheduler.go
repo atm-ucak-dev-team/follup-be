@@ -7,9 +7,9 @@ import (
 	"sync"
 
 	"github.com/robfig/cron/v3"
-	"github.com/bomanarakasura/jira-email-automation/internal/domain"
-	"github.com/bomanarakasura/jira-email-automation/internal/repository"
-	"github.com/bomanarakasura/jira-email-automation/internal/service"
+	"github.com/atm-ucak/follup/internal/domain"
+	"github.com/atm-ucak/follup/internal/repository"
+	"github.com/atm-ucak/follup/internal/service"
 )
 
 // Scheduler manages automation rule execution using cron

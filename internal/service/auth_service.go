@@ -9,8 +9,8 @@ import (
 	"time"
 
 	// "github.com/golang-jwt/jwt/v5" // DISABLED: JWT authentication
-	"github.com/bomanarakasura/jira-email-automation/internal/domain"
-	"github.com/bomanarakasura/jira-email-automation/internal/repository"
+	"github.com/atm-ucak/follup/internal/domain"
+	"github.com/atm-ucak/follup/internal/repository"
 )
 
 // AuthServiceImpl implements the AuthService interface

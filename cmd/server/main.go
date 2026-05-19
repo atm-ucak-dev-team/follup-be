@@ -13,13 +13,13 @@ import (
 	"time"
 
 	// "github.com/golang-jwt/jwt/v5" // DISABLED: JWT authentication
-	"github.com/bomanarakasura/jira-email-automation/config"
-	"github.com/bomanarakasura/jira-email-automation/internal/cron"
-	"github.com/bomanarakasura/jira-email-automation/internal/email"
-	"github.com/bomanarakasura/jira-email-automation/internal/handler"
-	"github.com/bomanarakasura/jira-email-automation/internal/infra"
-	"github.com/bomanarakasura/jira-email-automation/internal/repository/dragonfly"
-	"github.com/bomanarakasura/jira-email-automation/internal/service"
+	"github.com/atm-ucak/follup/config"
+	"github.com/atm-ucak/follup/internal/cron"
+	"github.com/atm-ucak/follup/internal/email"
+	"github.com/atm-ucak/follup/internal/handler"
+	"github.com/atm-ucak/follup/internal/infra"
+	"github.com/atm-ucak/follup/internal/repository/dragonfly"
+	"github.com/atm-ucak/follup/internal/service"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )

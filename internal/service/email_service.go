@@ -10,9 +10,9 @@ import (
 
 	"github.com/emersion/go-imap"
 	"github.com/emersion/go-imap/client"
-	"github.com/bomanarakasura/jira-email-automation/internal/domain"
-	"github.com/bomanarakasura/jira-email-automation/internal/infra"
-	"github.com/bomanarakasura/jira-email-automation/internal/repository"
+	"github.com/atm-ucak/follup/internal/domain"
+	"github.com/atm-ucak/follup/internal/infra"
+	"github.com/atm-ucak/follup/internal/repository"
 )
 
 // EmailServiceImpl implements the EmailService interface

@@ -6,8 +6,8 @@ import (
 	"net/mail"
 
 	"github.com/robfig/cron/v3"
-	"github.com/bomanarakasura/jira-email-automation/internal/domain"
-	"github.com/bomanarakasura/jira-email-automation/internal/repository"
+	"github.com/atm-ucak/follup/internal/domain"
+	"github.com/atm-ucak/follup/internal/repository"
 )
 
 // AutomationServiceImpl implements the AutomationService interface

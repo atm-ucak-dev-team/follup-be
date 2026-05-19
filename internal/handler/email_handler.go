@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
-	"github.com/bomanarakasura/jira-email-automation/internal/service"
+	"github.com/atm-ucak/follup/internal/service"
 )
 
 // EmailHandler handles email credential-related HTTP requests

@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/bomanarakasura/jira-email-automation/internal/domain"
+	"github.com/atm-ucak/follup/internal/domain"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 

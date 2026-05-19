@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bomanarakasura/jira-email-automation/internal/domain"
+	"github.com/atm-ucak/follup/internal/domain"
 )
 
 // MockOAuthTokenRepository is a mock implementation of OAuthTokenRepository

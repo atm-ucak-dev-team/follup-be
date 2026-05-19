@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v4"
-	"github.com/bomanarakasura/jira-email-automation/internal/domain"
-	service2 "github.com/bomanarakasura/jira-email-automation/internal/service"
+	"github.com/atm-ucak/follup/internal/domain"
+	service2 "github.com/atm-ucak/follup/internal/service"
 )
 
 // AutomationHandler handles automation rule HTTP requests

@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 
-	"github.com/bomanarakasura/jira-email-automation/internal/domain"
+	"github.com/atm-ucak/follup/internal/domain"
 )
 
 // AuthService defines the interface for authentication operations
