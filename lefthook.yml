@@ -1,4 +1,4 @@
 pre-commit:
-  scripts:
-    "checks.sh":
+  jobs:
+    - script: "checks.sh"
       runner: sh
