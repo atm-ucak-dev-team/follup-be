@@ -55,3 +55,4 @@ config/*.local.yaml
 bin/
 .claude/
 .beads/
+docs/
