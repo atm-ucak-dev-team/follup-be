@@ -42,22 +42,23 @@ func TestLoadConfig_Success(t *testing.T) {
 func TestLoadConfig_MissingRequiredField(t *testing.T) {
 	// Set up environment variables but miss one
 	envVars := map[string]string{
-		"APP_PORT":                      "8080",
-		"APP_ENV":                       "development",
-		"AES_SECRET_KEY":                "12345678901234567890123456789012", // exactly 32 chars
-		"JWT_SECRET":                    "test-jwt-secret-key-exactly-32-chars!!", // exactly 32 chars
-		"DRAGONFLY_ADDR":                "localhost:6379",
-		"DRAGONFLY_DB":                  "0",
-		"POSTGRES_DSN":                  "postgres://user:pass@localhost:5432/dbname",
+		"APP_PORT":       "8080",
+		"APP_ENV":        "development",
+		"AES_SECRET_KEY": "12345678901234567890123456789012",       // exactly 32 chars
+		"JWT_SECRET":     "test-jwt-secret-key-exactly-32-chars!!", // exactly 32 chars
+		"DRAGONFLY_ADDR": "localhost:6379",
+		"DRAGONFLY_DB":   "0",
+		"POSTGRES_DSN":   "postgres://user:pass@localhost:5432/dbname",
 		// Missing JIRA_CLIENT_ID
-		"JIRA_CLIENT_SECRET":            "secret",
-		"JIRA_REDIRECT_URI":             "https://example.com/callback",
-		"JIRA_BASE_URL":                 "https://api.atlassian.com",
-		"IMAP_HOST":                     "imap.gmail.com",
-		"IMAP_PORT":                     "993",
-		"SMTP_HOST":                     "smtp.gmail.com",
-		"SMTP_PORT":                     "587",
-		"IMAP_POLL_INTERVAL_SECONDS":    "300",
+		"JIRA_CLIENT_SECRET":         "secret",
+		"JIRA_REDIRECT_URI":          "https://example.com/callback",
+		"JIRA_AUTH_BASE_URL":         "https://auth.atlassian.com",
+		"JIRA_API_BASE_URL":          "https://api.atlassian.com",
+		"IMAP_HOST":                  "imap.gmail.com",
+		"IMAP_PORT":                  "993",
+		"SMTP_HOST":                  "smtp.gmail.com",
+		"SMTP_PORT":                  "587",
+		"IMAP_POLL_INTERVAL_SECONDS": "300",
 	}
 
 	for k, v := range envVars {
@@ -209,7 +210,7 @@ func TestConfig_Validate_DragonflyDB(t *testing.T) {
 			cfg := &domain.Config{
 				Port:                    8080,
 				Env:                     "development",
-				AESSecretKey:            "12345678901234567890123456789012", // exactly 32 chars
+				AESSecretKey:            "12345678901234567890123456789012",       // exactly 32 chars
 				JWTSecret:               "test-jwt-secret-key-exactly-32-chars!!", // exactly 32 chars
 				DragonflyAddr:           "localhost:6379",
 				DragonflyPassword:       "",
@@ -218,7 +219,8 @@ func TestConfig_Validate_DragonflyDB(t *testing.T) {
 				JiraClientID:            "client-id",
 				JiraClientSecret:        "client-secret",
 				JiraRedirectURI:         "https://example.com/callback",
-				JiraBaseURL:             "https://api.atlassian.com",
+				JiraAuthBaseURL:         "https://auth.atlassian.com",
+				JiraAPIBaseURL:          "https://api.atlassian.com",
 				IMAPHost:                "imap.gmail.com",
 				IMAPPort:                993,
 				SMTPHost:                "smtp.gmail.com",
@@ -299,7 +301,7 @@ func setEnvVars(t *testing.T) {
 	envVars := map[string]string{
 		"APP_PORT":                   "8080",
 		"APP_ENV":                    "development",
-		"AES_SECRET_KEY":             "12345678901234567890123456789012", // exactly 32 chars
+		"AES_SECRET_KEY":             "12345678901234567890123456789012",       // exactly 32 chars
 		"JWT_SECRET":                 "test-jwt-secret-key-exactly-32-chars!!", // exactly 32 chars
 		"DRAGONFLY_ADDR":             "localhost:6379",
 		"DRAGONFLY_PASSWORD":         "",
@@ -308,7 +310,8 @@ func setEnvVars(t *testing.T) {
 		"JIRA_CLIENT_ID":             "test-client-id",
 		"JIRA_CLIENT_SECRET":         "test-client-secret",
 		"JIRA_REDIRECT_URI":          "https://example.com/callback",
-		"JIRA_BASE_URL":              "https://api.atlassian.com",
+		"JIRA_AUTH_BASE_URL":         "https://auth.atlassian.com",
+		"JIRA_API_BASE_URL":          "https://api.atlassian.com",
 		"IMAP_HOST":                  "imap.gmail.com",
 		"IMAP_PORT":                  "993",
 		"SMTP_HOST":                  "smtp.gmail.com",
@@ -334,7 +337,8 @@ func unsetEnvVars(t *testing.T) {
 		"JIRA_CLIENT_ID",
 		"JIRA_CLIENT_SECRET",
 		"JIRA_REDIRECT_URI",
-		"JIRA_BASE_URL",
+		"JIRA_AUTH_BASE_URL",
+		"JIRA_API_BASE_URL",
 		"IMAP_HOST",
 		"IMAP_PORT",
 		"SMTP_HOST",

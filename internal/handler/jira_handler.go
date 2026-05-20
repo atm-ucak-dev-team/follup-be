@@ -4,8 +4,8 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/labstack/echo/v4"
 	"github.com/atm-ucak/follup/internal/service"
+	"github.com/labstack/echo/v4"
 )
 
 // JiraHandler handles Jira-related HTTP requests

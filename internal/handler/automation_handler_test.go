@@ -9,10 +9,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/atm-ucak/follup/internal/domain"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/atm-ucak/follup/internal/domain"
 )
 
 // MockAutomationService is a mock for testing automation handler
@@ -77,13 +77,13 @@ func (m *MockAutomationService) TriggerRule(ctx interface{}, automationID string
 // Helper function to create a test automation rule
 func createTestAutomationRule() *domain.AutomationRule {
 	return &domain.AutomationRule{
-		ID:           "test-automation-id",
-		UserID:       "test-user-123",
-		JiraTicketID: "ticket-456",
+		ID:            "test-automation-id",
+		UserID:        "test-user-123",
+		JiraTicketID:  "ticket-456",
 		JiraTicketKey: "PROJ-123",
-		Recipients:   []string{"test@example.com"},
-		CronSchedule: "0 9 * * 1",
-		Status:       domain.AutomationStatusActive,
+		Recipients:    []string{"test@example.com"},
+		CronSchedule:  "0 9 * * 1",
+		Status:        domain.AutomationStatusActive,
 	}
 }
 
@@ -273,13 +273,13 @@ func TestListAutomations_Success(t *testing.T) {
 	expectedRules := []*domain.AutomationRule{
 		createTestAutomationRule(),
 		{
-			ID:           "test-automation-id-2",
-			UserID:       "test-user-123",
-			JiraTicketID: "ticket-789",
+			ID:            "test-automation-id-2",
+			UserID:        "test-user-123",
+			JiraTicketID:  "ticket-789",
 			JiraTicketKey: "PROJ-456",
-			Recipients:   []string{"another@example.com"},
-			CronSchedule: "0 17 * * 5",
-			Status:       domain.AutomationStatusActive,
+			Recipients:    []string{"another@example.com"},
+			CronSchedule:  "0 17 * * 5",
+			Status:        domain.AutomationStatusActive,
 		},
 	}
 

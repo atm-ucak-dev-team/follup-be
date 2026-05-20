@@ -8,7 +8,7 @@ type Config struct {
 
 	// Encryption
 	AESSecretKey string
-	JWTSecret     string
+	JWTSecret    string
 
 	// DragonflyDB
 	DragonflyAddr     string
@@ -22,7 +22,8 @@ type Config struct {
 	JiraClientID     string
 	JiraClientSecret string
 	JiraRedirectURI  string
-	JiraBaseURL      string
+	JiraAuthBaseURL  string // for OAuth operations
+	JiraAPIBaseURL   string
 
 	// Email Provider
 	IMAPHost string
@@ -79,8 +80,11 @@ func (c *Config) Validate() error {
 	if c.JiraRedirectURI == "" {
 		return &ValidationError{Field: "JiraRedirectURI", Message: "is required"}
 	}
-	if c.JiraBaseURL == "" {
-		return &ValidationError{Field: "JiraBaseURL", Message: "is required"}
+	if c.JiraAuthBaseURL == "" {
+		return &ValidationError{Field: "JiraAuthBaseURL", Message: "is required"}
+	}
+	if c.JiraAPIBaseURL == "" {
+		return &ValidationError{Field: "JiraAPIBaseURL", Message: "is required"}
 	}
 
 	// Email Provider validation

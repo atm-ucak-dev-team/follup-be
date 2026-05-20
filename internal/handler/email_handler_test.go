@@ -8,21 +8,21 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/atm-ucak/follup/internal/domain"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
-	"github.com/atm-ucak/follup/internal/domain"
 )
 
 // MockEmailService for testing
 type MockEmailService struct {
-	saveCredentialFunc      func(ctx context.Context, userID, email, password string) error
-	getCredentialFunc       func(ctx interface{}, userID string) (*domain.EmailCredential, error)
-	registerCredentialFunc  func(ctx interface{}, cred *domain.EmailCredential) error
-	sendFollowUpFunc        func(ctx interface{}, threadID, subject, body string, recipients []string) error
-	checkForRepliesFunc     func(ctx interface{}) error
-	decryptPasswordFunc     func(encryptedPassword string) (string, error)
-	sendFollowUpAutoFunc    func(ctx context.Context, automationID string) error
-	pollInboxFunc           func(ctx context.Context) error
+	saveCredentialFunc     func(ctx context.Context, userID, email, password string) error
+	getCredentialFunc      func(ctx interface{}, userID string) (*domain.EmailCredential, error)
+	registerCredentialFunc func(ctx interface{}, cred *domain.EmailCredential) error
+	sendFollowUpFunc       func(ctx interface{}, threadID, subject, body string, recipients []string) error
+	checkForRepliesFunc    func(ctx interface{}) error
+	decryptPasswordFunc    func(encryptedPassword string) (string, error)
+	sendFollowUpAutoFunc   func(ctx context.Context, automationID string) error
+	pollInboxFunc          func(ctx context.Context) error
 }
 
 func (m *MockEmailService) RegisterCredential(ctx interface{}, cred *domain.EmailCredential) error {

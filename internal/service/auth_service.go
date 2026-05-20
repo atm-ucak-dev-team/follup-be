@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"time"
@@ -63,6 +64,7 @@ func (s *AuthServiceImpl) ExchangeJiraCode(ctx context.Context, code, state stri
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to exchange code for token: %w", err)
 	}
+	log.Println("accessTOken", tokenResp.AccessToken)
 
 	// Get user info from Jira
 	jiraUser, err := s.getJiraUserInfo(ctx, tokenResp.AccessToken)
@@ -136,13 +138,15 @@ func (s *AuthServiceImpl) RefreshJiraToken(ctx context.Context, userID string) (
 // GenerateAuthURL creates the Jira OAuth authorization URL
 func (s *AuthServiceImpl) GenerateAuthURL(state string) string {
 	params := url.Values{}
+	params.Add("audience", "api.atlassian.com")
 	params.Add("client_id", s.config.JiraClientID)
-	params.Add("redirect_uri", s.config.JiraRedirectURI)
-	params.Add("response_type", "code")
-	params.Add("state", state)
 	params.Add("scope", "read:jira-user read:jira-work offline_access")
+	params.Add("redirect_uri", s.config.JiraRedirectURI)
+	params.Add("state", state)
+	params.Add("response_type", "code")
+	params.Add("prompt", "consent")
 
-	return fmt.Sprintf("%s/oauth/authorize?%s", s.config.JiraBaseURL, params.Encode())
+	return fmt.Sprintf("%s/authorize?%s", s.config.JiraAuthBaseURL, params.Encode())
 }
 
 // ValidateToken validates if a token is valid and not expired
@@ -159,7 +163,7 @@ func (s *AuthServiceImpl) exchangeCodeForToken(ctx context.Context, code string)
 	data.Set("client_id", s.config.JiraClientID)
 	data.Set("client_secret", s.config.JiraClientSecret)
 
-	req, err := http.NewRequestWithContext(ctx, "POST", s.config.JiraBaseURL+"/oauth/token", nil)
+	req, err := http.NewRequestWithContext(ctx, "POST", s.config.JiraAuthBaseURL+"/oauth/token", nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -193,7 +197,7 @@ func (s *AuthServiceImpl) refreshToken(ctx context.Context, refreshToken string)
 	data.Set("client_id", s.config.JiraClientID)
 	data.Set("client_secret", s.config.JiraClientSecret)
 
-	req, err := http.NewRequestWithContext(ctx, "POST", s.config.JiraBaseURL+"/oauth/token", nil)
+	req, err := http.NewRequestWithContext(ctx, "POST", s.config.JiraAuthBaseURL+"/oauth/token", nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -221,7 +225,7 @@ func (s *AuthServiceImpl) refreshToken(ctx context.Context, refreshToken string)
 
 // getJiraUserInfo retrieves user information from Jira API
 func (s *AuthServiceImpl) getJiraUserInfo(ctx context.Context, accessToken string) (*jiraUserResponse, error) {
-	userInfoURL := fmt.Sprintf("%s/me", s.config.JiraBaseURL)
+	userInfoURL := fmt.Sprintf("%s/me", s.config.JiraAPIBaseURL)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", userInfoURL, nil)
 	if err != nil {

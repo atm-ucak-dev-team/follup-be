@@ -14,8 +14,8 @@ import (
 
 // JiraServiceImpl implements the JiraService interface
 type JiraServiceImpl struct {
-	oauthRepo repository.OAuthTokenRepository
-	config    *domain.Config
+	oauthRepo  repository.OAuthTokenRepository
+	config     *domain.Config
 	httpClient *http.Client
 }
 
@@ -35,9 +35,9 @@ func NewJiraService(
 
 // Jira API response structures
 type jiraSearchResponse struct {
-	StartAt    int           `json:"startAt"`
-	MaxResults int           `json:"maxResults"`
-	Total      int           `json:"total"`
+	StartAt    int             `json:"startAt"`
+	MaxResults int             `json:"maxResults"`
+	Total      int             `json:"total"`
 	Issues     []jiraIssueItem `json:"issues"`
 }
 
@@ -46,7 +46,7 @@ type jiraIssueItem struct {
 	Key    string `json:"key"`
 	Fields struct {
 		Summary string `json:"summary"`
-		Status struct {
+		Status  struct {
 			Name string `json:"name"`
 		} `json:"status"`
 		// Custom field for stakeholders - will be extracted dynamically
@@ -58,7 +58,7 @@ type jiraIssueResponse struct {
 	Key    string `json:"key"`
 	Fields struct {
 		Summary string `json:"summary"`
-		Status struct {
+		Status  struct {
 			Name string `json:"name"`
 		} `json:"status"`
 		// Custom field for stakeholders - will be extracted dynamically
@@ -66,8 +66,8 @@ type jiraIssueResponse struct {
 }
 
 type jiraErrorResponse struct {
-	ErrorMessages []string `json:"errorMessages"`
-	Errors       map[string]string `json:"errors"`
+	ErrorMessages []string          `json:"errorMessages"`
+	Errors        map[string]string `json:"errors"`
 }
 
 // GetIssues retrieves Jira issues for a user with optional project and status filters
@@ -82,7 +82,7 @@ func (s *JiraServiceImpl) GetIssues(ctx context.Context, userID, project, status
 	jql := s.buildJQLQuery(project, status)
 
 	// Make API request
-	searchURL := fmt.Sprintf("%s/rest/api/3/search", s.config.JiraBaseURL)
+	searchURL := fmt.Sprintf("%s/rest/api/3/search", s.config.JiraAPIBaseURL)
 	req, err := s.createJiraRequest(ctx, "POST", searchURL, token)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -135,7 +135,7 @@ func (s *JiraServiceImpl) GetIssue(ctx context.Context, userID, ticketKey string
 	}
 
 	// Make API request
-	issueURL := fmt.Sprintf("%s/rest/api/3/issue/%s", s.config.JiraBaseURL, ticketKey)
+	issueURL := fmt.Sprintf("%s/rest/api/3/issue/%s", s.config.JiraAPIBaseURL, ticketKey)
 	req, err := s.createJiraRequest(ctx, "GET", issueURL, token)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)

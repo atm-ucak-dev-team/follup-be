@@ -7,16 +7,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/redis/go-redis/v9"
 	"github.com/atm-ucak/follup/internal/domain"
 	"github.com/atm-ucak/follup/internal/infra"
+	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 )
 
 const (
-	automationKeyPrefix     = "automation:"
-	automationIndexPrefix   = "automation:index:"
-	automationActiveKey     = "automation:active"
+	automationKeyPrefix   = "automation:"
+	automationIndexPrefix = "automation:index:"
+	automationActiveKey   = "automation:active"
 )
 
 // AutomationRepository implements AutomationRuleRepository with DragonflyDB

@@ -6,14 +6,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/atm-ucak/follup/internal/domain"
+	"github.com/stretchr/testify/assert"
 )
 
 // Mock implementations for testing
 type mockEmailService struct {
-	getCredentialFunc     func(ctx interface{}, userID string) (*domain.EmailCredential, error)
-	decryptPasswordFunc   func(encryptedPassword string) (string, error)
+	getCredentialFunc   func(ctx interface{}, userID string) (*domain.EmailCredential, error)
+	decryptPasswordFunc func(encryptedPassword string) (string, error)
 }
 
 func (m *mockEmailService) GetCredential(ctx interface{}, userID string) (*domain.EmailCredential, error) {
@@ -1023,11 +1023,11 @@ func TestPoller_matchMessageToThread_NilMessage(t *testing.T) {
 // TestPoller_pollUser_CompleteFlow tests the complete user polling flow
 func TestPoller_pollUser_CompleteFlow(t *testing.T) {
 	tests := []struct {
-		name           string
-		emailSetup     func() *mockEmailService
-		rules          []*domain.AutomationRule
-		expectError    bool
-		errorContains  string
+		name          string
+		emailSetup    func() *mockEmailService
+		rules         []*domain.AutomationRule
+		expectError   bool
+		errorContains string
 	}{
 		{
 			name: "Successful credential retrieval, failed IMAP connection",

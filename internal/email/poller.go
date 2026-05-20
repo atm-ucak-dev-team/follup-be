@@ -7,21 +7,21 @@ import (
 	"log"
 	"time"
 
-	"github.com/emersion/go-imap"
-	"github.com/emersion/go-imap/client"
 	"github.com/atm-ucak/follup/internal/domain"
 	"github.com/atm-ucak/follup/internal/repository"
 	"github.com/atm-ucak/follup/internal/service"
+	"github.com/emersion/go-imap"
+	"github.com/emersion/go-imap/client"
 )
 
 // Poller handles background IMAP polling for email replies
 type Poller struct {
-	emailService   service.EmailService
-	automationRepo repository.AutomationRuleRepository
+	emailService    service.EmailService
+	automationRepo  repository.AutomationRuleRepository
 	emailThreadRepo repository.EmailThreadRepository
-	interval       time.Duration
-	stopChan       chan struct{}
-	running        bool
+	interval        time.Duration
+	stopChan        chan struct{}
+	running         bool
 }
 
 // NewPoller creates a new Poller instance
@@ -32,12 +32,12 @@ func NewPoller(
 	interval time.Duration,
 ) *Poller {
 	return &Poller{
-		emailService:   emailService,
-		automationRepo: automationRepo,
+		emailService:    emailService,
+		automationRepo:  automationRepo,
 		emailThreadRepo: emailThreadRepo,
-		interval:       interval,
-		stopChan:       make(chan struct{}),
-		running:        false,
+		interval:        interval,
+		stopChan:        make(chan struct{}),
+		running:         false,
 	}
 }
 
@@ -190,7 +190,7 @@ func (p *Poller) connectIMAP(email, password, host string, port int) (*client.Cl
 
 	// Create TLS configuration
 	tlsConfig := &tls.Config{
-		ServerName: host,
+		ServerName:         host,
 		InsecureSkipVerify: false, // Proper TLS verification
 	}
 

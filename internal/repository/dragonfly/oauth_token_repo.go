@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/redis/go-redis/v9"
 	"github.com/atm-ucak/follup/internal/domain"
 	"github.com/atm-ucak/follup/internal/infra"
+	"github.com/redis/go-redis/v9"
 )
 
 // OAuthTokenRepositoryImpl implements OAuthTokenRepository

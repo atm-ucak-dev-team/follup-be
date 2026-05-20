@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/atm-ucak/follup/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/atm-ucak/follup/internal/domain"
 )
 
 // Mock implementations for testing
@@ -156,9 +156,9 @@ func TestExchangeJiraCode_Success(t *testing.T) {
 	}
 
 	userResp := map[string]interface{}{
-		"account_id":     "user123",
-		"name":           "Test User",
-		"email_address":  "test@example.com",
+		"account_id":    "user123",
+		"name":          "Test User",
+		"email_address": "test@example.com",
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -182,11 +182,12 @@ func TestExchangeJiraCode_Success(t *testing.T) {
 
 	// Setup service
 	config := &domain.Config{
-		JiraBaseURL:     server.URL,
-		JiraClientID:    "test_client_id",
+		JiraAuthBaseURL:  server.URL,
+		JiraAPIBaseURL:   server.URL,
+		JiraClientID:     "test_client_id",
 		JiraClientSecret: "test_secret",
-		JiraRedirectURI: "http://localhost/callback",
-		JWTSecret:       "test-jwt-secret-minimum-32-chars",
+		JiraRedirectURI:  "http://localhost/callback",
+		JWTSecret:        "test-jwt-secret-minimum-32-chars",
 	}
 
 	userRepo := newMockUserRepo()
@@ -226,11 +227,12 @@ func TestExchangeJiraCode_InvalidCode(t *testing.T) {
 
 	// Setup service
 	config := &domain.Config{
-		JiraBaseURL:     server.URL,
-		JiraClientID:    "test_client_id",
+		JiraAuthBaseURL:  server.URL,
+		JiraAPIBaseURL:   server.URL,
+		JiraClientID:     "test_client_id",
 		JiraClientSecret: "test_secret",
-		JiraRedirectURI: "http://localhost/callback",
-		JWTSecret:       "test-jwt-secret-minimum-32-chars",
+		JiraRedirectURI:  "http://localhost/callback",
+		JWTSecret:        "test-jwt-secret-minimum-32-chars",
 	}
 
 	userRepo := newMockUserRepo()
@@ -267,10 +269,11 @@ func TestRefreshJiraToken_Success(t *testing.T) {
 
 	// Setup service
 	config := &domain.Config{
-		JiraBaseURL:     server.URL,
-		JiraClientID:    "test_client_id",
+		JiraAuthBaseURL:  server.URL,
+		JiraAPIBaseURL:   server.URL,
+		JiraClientID:     "test_client_id",
 		JiraClientSecret: "test_secret",
-		JWTSecret:       "test-jwt-secret-minimum-32-chars",
+		JWTSecret:        "test-jwt-secret-minimum-32-chars",
 	}
 
 	userRepo := newMockUserRepo()
@@ -315,10 +318,11 @@ func TestRefreshJiraToken_TokenExpired(t *testing.T) {
 
 	// Setup service
 	config := &domain.Config{
-		JiraBaseURL:     server.URL,
-		JiraClientID:    "test_client_id",
+		JiraAuthBaseURL:  server.URL,
+		JiraAPIBaseURL:   server.URL,
+		JiraClientID:     "test_client_id",
 		JiraClientSecret: "test_secret",
-		JWTSecret:       "test-jwt-secret-minimum-32-chars",
+		JWTSecret:        "test-jwt-secret-minimum-32-chars",
 	}
 
 	userRepo := newMockUserRepo()
@@ -358,10 +362,11 @@ func TestRefreshJiraToken_RefreshFailed_PausesAutomations(t *testing.T) {
 
 	// Setup service
 	config := &domain.Config{
-		JiraBaseURL:     server.URL,
-		JiraClientID:    "test_client_id",
+		JiraAuthBaseURL:  server.URL,
+		JiraAPIBaseURL:   server.URL,
+		JiraClientID:     "test_client_id",
 		JiraClientSecret: "test_secret",
-		JWTSecret:       "test-jwt-secret-minimum-32-chars",
+		JWTSecret:        "test-jwt-secret-minimum-32-chars",
 	}
 
 	userRepo := newMockUserRepo()
@@ -418,11 +423,12 @@ func TestRefreshJiraToken_RefreshFailed_PausesAutomations(t *testing.T) {
 // TestGenerateAuthURL tests authorization URL generation
 func TestGenerateAuthURL(t *testing.T) {
 	config := &domain.Config{
-		JiraBaseURL:     "https://api.atlassian.com",
-		JiraClientID:    "test_client_id",
+		JiraAuthBaseURL:  "https://auth.atlassian.com",
+		JiraAPIBaseURL:   "https://api.atlassian.com",
+		JiraClientID:     "test_client_id",
 		JiraClientSecret: "test_secret",
-		JiraRedirectURI: "http://localhost/callback",
-		JWTSecret:       "test-jwt-secret-minimum-32-chars",
+		JiraRedirectURI:  "http://localhost/callback",
+		JWTSecret:        "test-jwt-secret-minimum-32-chars",
 	}
 
 	userRepo := newMockUserRepo()
@@ -433,7 +439,14 @@ func TestGenerateAuthURL(t *testing.T) {
 
 	url := authService.(*AuthServiceImpl).GenerateAuthURL("test_state")
 
-	assert.Contains(t, url, "https://api.atlassian.com/oauth/authorize")
+	// Check base URL (changed from /oauth/authorize to /authorize)
+	assert.Contains(t, url, "https://auth.atlassian.com/authorize")
+
+	// Check new parameters
+	assert.Contains(t, url, "audience=api.atlassian.com")
+	assert.Contains(t, url, "prompt=consent")
+
+	// Check existing parameters
 	assert.Contains(t, url, "client_id=test_client_id")
 	assert.Contains(t, url, "redirect_uri=http%3A%2F%2Flocalhost%2Fcallback") // URL encoded
 	assert.Contains(t, url, "state=test_state")

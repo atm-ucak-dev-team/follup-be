@@ -54,12 +54,12 @@ func (m *MockEmailCredentialRepository) Delete(ctx context.Context, userID strin
 }
 
 type MockAutomationRuleRepository struct {
-	createFunc       func(ctx context.Context, rule *domain.AutomationRule) error
-	getByIDFunc      func(ctx context.Context, id string) (*domain.AutomationRule, error)
-	getByUserIDFunc  func(ctx context.Context, userID string) ([]*domain.AutomationRule, error)
+	createFunc         func(ctx context.Context, rule *domain.AutomationRule) error
+	getByIDFunc        func(ctx context.Context, id string) (*domain.AutomationRule, error)
+	getByUserIDFunc    func(ctx context.Context, userID string) ([]*domain.AutomationRule, error)
 	getActiveRulesFunc func(ctx context.Context) ([]*domain.AutomationRule, error)
-	updateFunc       func(ctx context.Context, rule *domain.AutomationRule) error
-	deleteFunc       func(ctx context.Context, id string) error
+	updateFunc         func(ctx context.Context, rule *domain.AutomationRule) error
+	deleteFunc         func(ctx context.Context, id string) error
 }
 
 func (m *MockAutomationRuleRepository) Create(ctx context.Context, rule *domain.AutomationRule) error {
@@ -114,13 +114,13 @@ func (m *MockAutomationRuleRepository) Delete(ctx context.Context, id string) er
 }
 
 type MockEmailThreadRepository struct {
-	createFunc              func(ctx context.Context, thread *domain.EmailThread) error
-	getByIDFunc             func(ctx context.Context, id string) (*domain.EmailThread, error)
-	getByAutomationIDFunc   func(ctx context.Context, automationID string) ([]*domain.EmailThread, error)
-	getByGmailThreadIDFunc  func(ctx context.Context, gmailThreadID string) (*domain.EmailThread, error)
-	updateFunc              func(ctx context.Context, thread *domain.EmailThread) error
-	updateThreadStatusFunc  func(ctx context.Context, threadID, status string) error
-	deleteFunc              func(ctx context.Context, id string) error
+	createFunc             func(ctx context.Context, thread *domain.EmailThread) error
+	getByIDFunc            func(ctx context.Context, id string) (*domain.EmailThread, error)
+	getByAutomationIDFunc  func(ctx context.Context, automationID string) ([]*domain.EmailThread, error)
+	getByGmailThreadIDFunc func(ctx context.Context, gmailThreadID string) (*domain.EmailThread, error)
+	updateFunc             func(ctx context.Context, thread *domain.EmailThread) error
+	updateThreadStatusFunc func(ctx context.Context, threadID, status string) error
+	deleteFunc             func(ctx context.Context, id string) error
 }
 
 func (m *MockEmailThreadRepository) Create(ctx context.Context, thread *domain.EmailThread) error {

@@ -9,17 +9,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/atm-ucak/follup/internal/domain"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/atm-ucak/follup/internal/domain"
 )
 
 // Mock AuthService for testing
 type mockAuthServiceForHandler struct {
-	exchangeCodeFunc func(ctx context.Context, code, state string) (*domain.User, string, error)
-	refreshTokenFunc func(ctx context.Context, userID string) (string, error)
-	generateURLFunc  func(state string) string
+	exchangeCodeFunc  func(ctx context.Context, code, state string) (*domain.User, string, error)
+	refreshTokenFunc  func(ctx context.Context, userID string) (string, error)
+	generateURLFunc   func(state string) string
 	validateTokenFunc func(token *domain.OAuthToken) bool
 }
 
@@ -55,13 +55,13 @@ func (m *mockAuthServiceForHandler) ValidateToken(token *domain.OAuthToken) bool
 	return true
 }
 
-// TestConnectJira_RedirectSuccess tests that the connect endpoint redirects to Jira
-func TestConnectJira_RedirectSuccess(t *testing.T) {
+// TestConnectJira_JSONResponseSuccess tests that the connect endpoint returns JSON with authorization URL
+func TestConnectJira_JSONResponseSuccess(t *testing.T) {
 	// Setup
 	e := echo.New()
 	mockAuth := &mockAuthServiceForHandler{
 		generateURLFunc: func(state string) string {
-			return "https://auth.atlassian.com/authorize?client=test&state=" + state
+			return "https://auth.atlassian.com/authorize?audience=api.atlassian.com&client_id=test&state=" + state
 		},
 	}
 	h := NewAuthHandler(mockAuth)
@@ -75,8 +75,18 @@ func TestConnectJira_RedirectSuccess(t *testing.T) {
 
 	// Assert
 	require.NoError(t, err)
-	assert.Equal(t, http.StatusFound, rec.Code)
-	assert.Contains(t, rec.Header().Get("Location"), "https://auth.atlassian.com/authorize")
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	// Parse JSON response
+	var response map[string]interface{}
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+
+	// Check response structure
+	assert.Contains(t, response, "connectUrl")
+	connectUrl := response["connectUrl"].(string)
+	assert.Contains(t, connectUrl, "https://auth.atlassian.com/authorize")
+	assert.Contains(t, connectUrl, "audience=api.atlassian.com")
 }
 
 // TestJiraCallback_Success tests successful OAuth callback

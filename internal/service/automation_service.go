@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"net/mail"
 
-	"github.com/robfig/cron/v3"
 	"github.com/atm-ucak/follup/internal/domain"
 	"github.com/atm-ucak/follup/internal/repository"
+	"github.com/robfig/cron/v3"
 )
 
 // AutomationServiceImpl implements the AutomationService interface

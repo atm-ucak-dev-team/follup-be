@@ -3,7 +3,7 @@ package domain
 // DragonflyDB storage key conventions
 const (
 	// User keys
-	UserKeyPrefix = "user:"
+	UserKeyPrefix        = "user:"
 	UserEmailIndexPrefix = "user:index:email:"
 
 	// OAuth token keys
@@ -13,11 +13,11 @@ const (
 	EmailCredentialKeyPrefix = "email_credential:"
 
 	// Automation rule keys
-	AutomationKeyPrefix = "automation:"
+	AutomationKeyPrefix   = "automation:"
 	AutomationIndexPrefix = "automation:index:"
 
 	// Email thread keys
-	EmailThreadKeyPrefix = "email_thread:"
+	EmailThreadKeyPrefix   = "email_thread:"
 	EmailThreadIndexPrefix = "email_thread:index:"
 )
 

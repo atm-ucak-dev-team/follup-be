@@ -180,9 +180,9 @@ func TestDecrypt_InvalidCiphertext_Fails(t *testing.T) {
 	key := make([]byte, 32)
 
 	testCases := []string{
-		"",                                    // Empty
-		"invalid-base64!!!",                   // Invalid base64
-		"dG9vLXNob3J0",                       // Valid base64 but too short
+		"",                  // Empty
+		"invalid-base64!!!", // Invalid base64
+		"dG9vLXNob3J0",      // Valid base64 but too short
 	}
 
 	for _, ciphertext := range testCases {

@@ -78,7 +78,7 @@ func TestGetIssues_Success(t *testing.T) {
 
 	// Create config
 	config := &domain.Config{
-		JiraBaseURL: server.URL,
+		JiraAPIBaseURL: server.URL,
 	}
 
 	// Create mock repository
@@ -132,7 +132,7 @@ func TestGetIssues_WithFilters(t *testing.T) {
 	defer server.Close()
 
 	config := &domain.Config{
-		JiraBaseURL: server.URL,
+		JiraAPIBaseURL: server.URL,
 	}
 
 	mockRepo := &MockOAuthTokenRepository{}
@@ -166,7 +166,7 @@ func TestGetIssues_TokenExpired(t *testing.T) {
 	}
 
 	config := &domain.Config{
-		JiraBaseURL: "https://api.atlassian.com",
+		JiraAPIBaseURL: "https://api.atlassian.com",
 	}
 
 	jiraService := NewJiraService(mockRepo, config)
@@ -207,7 +207,7 @@ func TestGetIssue_Success(t *testing.T) {
 	defer server.Close()
 
 	config := &domain.Config{
-		JiraBaseURL: server.URL,
+		JiraAPIBaseURL: server.URL,
 	}
 
 	mockRepo := &MockOAuthTokenRepository{}
@@ -242,7 +242,7 @@ func TestGetIssue_NotFound(t *testing.T) {
 	defer server.Close()
 
 	config := &domain.Config{
-		JiraBaseURL: server.URL,
+		JiraAPIBaseURL: server.URL,
 	}
 
 	mockRepo := &MockOAuthTokenRepository{}
@@ -269,7 +269,7 @@ func TestGetIssues_APIError(t *testing.T) {
 	defer server.Close()
 
 	config := &domain.Config{
-		JiraBaseURL: server.URL,
+		JiraAPIBaseURL: server.URL,
 	}
 
 	mockRepo := &MockOAuthTokenRepository{}
@@ -296,7 +296,7 @@ func TestGetIssue_APIErrorWithFieldErrors(t *testing.T) {
 	defer server.Close()
 
 	config := &domain.Config{
-		JiraBaseURL: server.URL,
+		JiraAPIBaseURL: server.URL,
 	}
 
 	mockRepo := &MockOAuthTokenRepository{}

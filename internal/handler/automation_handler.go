@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/labstack/echo/v4"
 	"github.com/atm-ucak/follup/internal/domain"
 	service2 "github.com/atm-ucak/follup/internal/service"
+	"github.com/labstack/echo/v4"
 )
 
 // AutomationHandler handles automation rule HTTP requests
@@ -24,10 +24,10 @@ func NewAutomationHandler(automationService service2.AutomationService) *Automat
 
 // Custom errors for automation operations
 var (
-	ErrAutomationNotFound      = errors.New("automation not found")
-	ErrInvalidCronExpression   = errors.New("invalid cron expression")
-	ErrInvalidRecipients       = errors.New("invalid recipients")
-	ErrUnauthorizedAutomation  = errors.New("unauthorized automation access")
+	ErrAutomationNotFound     = errors.New("automation not found")
+	ErrInvalidCronExpression  = errors.New("invalid cron expression")
+	ErrInvalidRecipients      = errors.New("invalid recipients")
+	ErrUnauthorizedAutomation = errors.New("unauthorized automation access")
 )
 
 // CreateAutomationRequest represents the request body for creating an automation rule
@@ -76,12 +76,12 @@ func (h *AutomationHandler) CreateAutomation(c echo.Context) error {
 
 	// Create automation rule
 	rule := &domain.AutomationRule{
-		UserID:       userID,
-		JiraTicketID: req.JiraTicketID,
+		UserID:        userID,
+		JiraTicketID:  req.JiraTicketID,
 		JiraTicketKey: req.JiraTicketKey,
-		Recipients:   req.Recipients,
-		CronSchedule: req.CronSchedule,
-		Status:       req.Status,
+		Recipients:    req.Recipients,
+		CronSchedule:  req.CronSchedule,
+		Status:        req.Status,
 	}
 
 	// Set default status if not provided
@@ -310,7 +310,7 @@ func (h *AutomationHandler) TriggerAutomation(c echo.Context) error {
 
 	// Return 202 Accepted
 	return c.JSON(http.StatusAccepted, map[string]interface{}{
-		"message": "automation rule triggered successfully",
+		"message":       "automation rule triggered successfully",
 		"automation_id": automationID,
 	})
 }

@@ -6,10 +6,10 @@ import (
 	"log"
 	"sync"
 
-	"github.com/robfig/cron/v3"
 	"github.com/atm-ucak/follup/internal/domain"
 	"github.com/atm-ucak/follup/internal/repository"
 	"github.com/atm-ucak/follup/internal/service"
+	"github.com/robfig/cron/v3"
 )
 
 // Scheduler manages automation rule execution using cron

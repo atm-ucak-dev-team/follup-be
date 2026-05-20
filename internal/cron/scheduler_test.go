@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/atm-ucak/follup/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"github.com/atm-ucak/follup/internal/domain"
 )
 
 // MockAutomationRuleRepository is a mock for testing
@@ -112,9 +112,9 @@ func TestScheduler_Start_LoadsActiveRules(t *testing.T) {
 	now := time.Now()
 	activeRules := []*domain.AutomationRule{
 		{
-			ID:           "rule-1",
-			UserID:       "user-1",
-			JiraTicketID: "ticket-1",
+			ID:            "rule-1",
+			UserID:        "user-1",
+			JiraTicketID:  "ticket-1",
 			JiraTicketKey: "PROJ-123",
 			Recipients:    []string{"test@example.com"},
 			CronSchedule:  "0 9 * * 1", // Every Monday at 9 AM
@@ -122,9 +122,9 @@ func TestScheduler_Start_LoadsActiveRules(t *testing.T) {
 			CreatedAt:     now,
 		},
 		{
-			ID:           "rule-2",
-			UserID:       "user-2",
-			JiraTicketID: "ticket-2",
+			ID:            "rule-2",
+			UserID:        "user-2",
+			JiraTicketID:  "ticket-2",
 			JiraTicketKey: "PROJ-456",
 			Recipients:    []string{"test2@example.com"},
 			CronSchedule:  "0 */2 * * *", // Every 2 hours
@@ -161,9 +161,9 @@ func TestScheduler_AddRule_Success(t *testing.T) {
 	scheduler := NewScheduler(mockRepo, mockEmailService)
 
 	rule := domain.AutomationRule{
-		ID:           "rule-1",
-		UserID:       "user-1",
-		JiraTicketID: "ticket-1",
+		ID:            "rule-1",
+		UserID:        "user-1",
+		JiraTicketID:  "ticket-1",
 		JiraTicketKey: "PROJ-123",
 		Recipients:    []string{"test@example.com"},
 		CronSchedule:  "0 9 * * *", // Daily at 9 AM
@@ -189,9 +189,9 @@ func TestScheduler_AddRule_InvalidCron(t *testing.T) {
 	scheduler := NewScheduler(mockRepo, mockEmailService)
 
 	rule := domain.AutomationRule{
-		ID:           "rule-1",
-		UserID:       "user-1",
-		JiraTicketID: "ticket-1",
+		ID:            "rule-1",
+		UserID:        "user-1",
+		JiraTicketID:  "ticket-1",
 		JiraTicketKey: "PROJ-123",
 		Recipients:    []string{"test@example.com"},
 		CronSchedule:  "invalid-cron", // Invalid cron expression
@@ -218,9 +218,9 @@ func TestScheduler_AddRule_EmptyCron(t *testing.T) {
 	scheduler := NewScheduler(mockRepo, mockEmailService)
 
 	rule := domain.AutomationRule{
-		ID:           "rule-1",
-		UserID:       "user-1",
-		JiraTicketID: "ticket-1",
+		ID:            "rule-1",
+		UserID:        "user-1",
+		JiraTicketID:  "ticket-1",
 		JiraTicketKey: "PROJ-123",
 		Recipients:    []string{"test@example.com"},
 		CronSchedule:  "", // Empty cron expression
@@ -243,9 +243,9 @@ func TestScheduler_RemoveRule_Success(t *testing.T) {
 	scheduler := NewScheduler(mockRepo, mockEmailService)
 
 	rule := domain.AutomationRule{
-		ID:           "rule-1",
-		UserID:       "user-1",
-		JiraTicketID: "ticket-1",
+		ID:            "rule-1",
+		UserID:        "user-1",
+		JiraTicketID:  "ticket-1",
 		JiraTicketKey: "PROJ-123",
 		Recipients:    []string{"test@example.com"},
 		CronSchedule:  "0 9 * * *",
@@ -294,9 +294,9 @@ func TestScheduler_JobExecution_Success(t *testing.T) {
 	scheduler := NewScheduler(mockRepo, mockEmailService)
 
 	rule := domain.AutomationRule{
-		ID:           "rule-1",
-		UserID:       "user-1",
-		JiraTicketID: "ticket-1",
+		ID:            "rule-1",
+		UserID:        "user-1",
+		JiraTicketID:  "ticket-1",
 		JiraTicketKey: "PROJ-123",
 		Recipients:    []string{"test@example.com"},
 		CronSchedule:  "* * * * *", // Every minute for testing
@@ -331,9 +331,9 @@ func TestScheduler_RuleStatusChange_SyncsCorrectly(t *testing.T) {
 	scheduler := NewScheduler(mockRepo, mockEmailService)
 
 	rule := domain.AutomationRule{
-		ID:           "rule-1",
-		UserID:       "user-1",
-		JiraTicketID: "ticket-1",
+		ID:            "rule-1",
+		UserID:        "user-1",
+		JiraTicketID:  "ticket-1",
 		JiraTicketKey: "PROJ-123",
 		Recipients:    []string{"test@example.com"},
 		CronSchedule:  "0 9 * * *",
@@ -391,9 +391,9 @@ func TestScheduler_AddRule_DuplicateRule(t *testing.T) {
 	scheduler := NewScheduler(mockRepo, mockEmailService)
 
 	rule := domain.AutomationRule{
-		ID:           "rule-1",
-		UserID:       "user-1",
-		JiraTicketID: "ticket-1",
+		ID:            "rule-1",
+		UserID:        "user-1",
+		JiraTicketID:  "ticket-1",
 		JiraTicketKey: "PROJ-123",
 		Recipients:    []string{"test@example.com"},
 		CronSchedule:  "0 9 * * *",
@@ -425,9 +425,9 @@ func TestScheduler_GracefulShutdown(t *testing.T) {
 	now := time.Now()
 	activeRules := []*domain.AutomationRule{
 		{
-			ID:           "rule-1",
-			UserID:       "user-1",
-			JiraTicketID: "ticket-1",
+			ID:            "rule-1",
+			UserID:        "user-1",
+			JiraTicketID:  "ticket-1",
 			JiraTicketKey: "PROJ-123",
 			Recipients:    []string{"test@example.com"},
 			CronSchedule:  "0 9 * * *",

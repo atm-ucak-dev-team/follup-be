@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/google/uuid"
-	"github.com/redis/go-redis/v9"
 	"github.com/atm-ucak/follup/internal/domain"
 	"github.com/atm-ucak/follup/internal/infra"
+	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 )
 
 // EmailThreadRepositoryImpl implements EmailThreadRepository

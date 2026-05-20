@@ -4,8 +4,8 @@ import (
 	"context"
 	"log"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/atm-ucak/follup/internal/domain"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // NewPostgresPool creates a new PostgreSQL connection pool
@@ -47,9 +47,10 @@ func NewPostgresPool(cfg *domain.Config) *pgxpool.Pool {
 // ClosePostgresPool closes the PostgreSQL connection pool gracefully
 //
 // Should be called during application shutdown sequence in main.go:
-//   if postgresPool != nil {
-//       infra.ClosePostgresPool(postgresPool)
-//   }
+//
+//	if postgresPool != nil {
+//	    infra.ClosePostgresPool(postgresPool)
+//	}
 func ClosePostgresPool(pool *pgxpool.Pool) {
 	if pool != nil {
 		log.Println("Closing PostgreSQL connection pool")

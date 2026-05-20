@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/redis/go-redis/v9"
 	"github.com/atm-ucak/follup/internal/domain"
+	"github.com/redis/go-redis/v9"
 )
 
 // NewDragonflyClient creates a new DragonflyDB client

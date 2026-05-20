@@ -1,11 +1,12 @@
 package handler
 
 import (
+	"log"
 	"net/http"
 	"time"
 
-	"github.com/labstack/echo/v4"
 	"github.com/atm-ucak/follup/internal/service"
+	"github.com/labstack/echo/v4"
 )
 
 // AuthHandler handles authentication-related HTTP requests
@@ -20,16 +21,21 @@ func NewAuthHandler(authService service.AuthService) *AuthHandler {
 	}
 }
 
-// ConnectJira redirects the user to Jira OAuth consent page
+// ConnectJira returns the Jira OAuth authorization URL as JSON
 func (h *AuthHandler) ConnectJira(c echo.Context) error {
 	// Generate a state parameter for CSRF protection
 	state := generateState()
 
 	// Get the Jira authorization URL from the auth service
 	authURL := h.authService.GenerateAuthURL(state)
+	log.Println(authURL)
 
-	// Redirect to Jira OAuth consent page
-	return c.Redirect(http.StatusFound, authURL)
+	// Return JSON response with authorization URL
+	response := map[string]interface{}{
+		"connectUrl": authURL,
+	}
+
+	return c.JSON(http.StatusOK, response)
 }
 
 // JiraCallback handles the OAuth callback from Jira
@@ -45,6 +51,8 @@ func (h *AuthHandler) JiraCallback(c echo.Context) error {
 	if state == "" {
 		return buildErrorResponse(c, http.StatusBadRequest, "MISSING_STATE", "state parameter is required")
 	}
+
+	log.Println("code", code)
 
 	// Exchange the authorization code for JWT and user info
 	user, accessToken, err := h.authService.ExchangeJiraCode(c.Request().Context(), code, state)

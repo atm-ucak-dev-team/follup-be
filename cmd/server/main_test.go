@@ -134,19 +134,19 @@ func TestHTTPServerStartup(t *testing.T) {
 // TestRouteRegistration documents the expected routes
 func TestRouteRegistration(t *testing.T) {
 	expectedRoutes := map[string]string{
-		"GET /health":                        "no auth",
-		"GET /auth/jira/connect":             "no auth",
-		"GET /auth/jira/callback":            "no auth",
-		"POST /auth/jira/refresh":            "no auth",
-		"POST /api/v1/email/credentials":     "X-User-Dummy-Id header auth",
-		"GET /api/v1/email/credentials":      "X-User-Dummy-Id header auth",
-		"GET /api/v1/jira/issues":            "X-User-Dummy-Id header auth",
-		"GET /api/v1/jira/issues/:ticket_key": "X-User-Dummy-Id header auth",
-		"POST /api/v1/automations":           "X-User-Dummy-Id header auth",
-		"GET /api/v1/automations":            "X-User-Dummy-Id header auth",
-		"GET /api/v1/automations/:id":        "X-User-Dummy-Id header auth",
-		"PATCH /api/v1/automations/:id":      "X-User-Dummy-Id header auth",
-		"DELETE /api/v1/automations/:id":     "X-User-Dummy-Id header auth",
+		"GET /health":                          "no auth",
+		"GET /auth/jira/connect":               "no auth",
+		"GET /auth/jira/callback":              "no auth",
+		"POST /auth/jira/refresh":              "no auth",
+		"POST /api/v1/email/credentials":       "X-User-Dummy-Id header auth",
+		"GET /api/v1/email/credentials":        "X-User-Dummy-Id header auth",
+		"GET /api/v1/jira/issues":              "X-User-Dummy-Id header auth",
+		"GET /api/v1/jira/issues/:ticket_key":  "X-User-Dummy-Id header auth",
+		"POST /api/v1/automations":             "X-User-Dummy-Id header auth",
+		"GET /api/v1/automations":              "X-User-Dummy-Id header auth",
+		"GET /api/v1/automations/:id":          "X-User-Dummy-Id header auth",
+		"PATCH /api/v1/automations/:id":        "X-User-Dummy-Id header auth",
+		"DELETE /api/v1/automations/:id":       "X-User-Dummy-Id header auth",
 		"POST /api/v1/automations/:id/trigger": "X-User-Dummy-Id header auth",
 	}
 

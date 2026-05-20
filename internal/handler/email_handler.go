@@ -3,8 +3,8 @@ package handler
 import (
 	"net/http"
 
-	"github.com/labstack/echo/v4"
 	"github.com/atm-ucak/follup/internal/service"
+	"github.com/labstack/echo/v4"
 )
 
 // EmailHandler handles email credential-related HTTP requests
@@ -66,7 +66,7 @@ func (h *EmailHandler) SaveCredentials(c echo.Context) error {
 
 	// Build success response - never include password in response
 	response := map[string]interface{}{
-		"message":      "email credential saved",
+		"message":       "email credential saved",
 		"email_address": req.EmailAddress,
 	}
 

@@ -11,10 +11,10 @@ import (
 )
 
 var (
-	ErrInvalidKeyLength   = errors.New("encryption key must be exactly 32 bytes")
-	ErrInvalidCiphertext  = errors.New("invalid ciphertext format")
-	ErrDecryptionFailed   = errors.New("decryption failed")
-	ErrNonceGeneration    = errors.New("failed to generate nonce")
+	ErrInvalidKeyLength  = errors.New("encryption key must be exactly 32 bytes")
+	ErrInvalidCiphertext = errors.New("invalid ciphertext format")
+	ErrDecryptionFailed  = errors.New("decryption failed")
+	ErrNonceGeneration   = errors.New("failed to generate nonce")
 )
 
 // Encrypt encrypts plaintext using AES-256-GCM

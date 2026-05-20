@@ -17,19 +17,19 @@ type AutomationRule struct {
 
 // AutomationRuleStatus constants
 const (
-	AutomationStatusActive  = "active"
-	AutomationStatusPaused  = "paused"
+	AutomationStatusActive = "active"
+	AutomationStatusPaused = "paused"
 )
 
 // EmailThread represents an email thread for follow-up tracking
 type EmailThread struct {
-	ID              string    `json:"id"`
-	UserID          string    `json:"user_id"`
-	AutomationID    string    `json:"automation_id"`
-	GmailThreadID   string    `json:"gmail_thread_id"` // IMAP thread/message ID
-	TicketID        string    `json:"ticket_id"`       // bound jira ticket
-	Status          string    `json:"status"`          // "open" | "replied" | "closed"
-	LastSyncedAt    time.Time `json:"last_synced_at"`
+	ID            string    `json:"id"`
+	UserID        string    `json:"user_id"`
+	AutomationID  string    `json:"automation_id"`
+	GmailThreadID string    `json:"gmail_thread_id"` // IMAP thread/message ID
+	TicketID      string    `json:"ticket_id"`       // bound jira ticket
+	Status        string    `json:"status"`          // "open" | "replied" | "closed"
+	LastSyncedAt  time.Time `json:"last_synced_at"`
 }
 
 // EmailThreadStatus constants

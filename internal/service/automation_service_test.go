@@ -5,10 +5,10 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/atm-ucak/follup/internal/domain"
 	service2 "github.com/atm-ucak/follup/internal/service"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 // MockAutomationRuleRepository is a mock for testing
@@ -106,13 +106,13 @@ func (m *MockEmailService) PollInbox(ctx context.Context) error {
 // Helper function to create a valid test rule
 func createValidTestRule() *domain.AutomationRule {
 	return &domain.AutomationRule{
-		ID:           "test-id",
-		UserID:       "user-123",
-		JiraTicketID: "ticket-456",
+		ID:            "test-id",
+		UserID:        "user-123",
+		JiraTicketID:  "ticket-456",
 		JiraTicketKey: "PROJ-123",
-		Recipients:   []string{"test@example.com"},
-		CronSchedule: "0 9 * * 1", // Valid 5-part cron: Every Monday at 9 AM
-		Status:       domain.AutomationStatusActive,
+		Recipients:    []string{"test@example.com"},
+		CronSchedule:  "0 9 * * 1", // Valid 5-part cron: Every Monday at 9 AM
+		Status:        domain.AutomationStatusActive,
 	}
 }
 
@@ -311,13 +311,13 @@ func TestGetUserRules_Success(t *testing.T) {
 	expectedRules := []*domain.AutomationRule{
 		createValidTestRule(),
 		{
-			ID:           "test-id-2",
-			UserID:       "user-123",
-			JiraTicketID: "ticket-789",
+			ID:            "test-id-2",
+			UserID:        "user-123",
+			JiraTicketID:  "ticket-789",
 			JiraTicketKey: "PROJ-456",
-			Recipients:   []string{"another@example.com"},
-			CronSchedule: "0 17 * * 5", // Every Friday at 5 PM
-			Status:       domain.AutomationStatusActive,
+			Recipients:    []string{"another@example.com"},
+			CronSchedule:  "0 17 * * 5", // Every Friday at 5 PM
+			Status:        domain.AutomationStatusActive,
 		},
 	}
 
@@ -488,13 +488,13 @@ func TestGetActiveRules_Success(t *testing.T) {
 	activeRules := []*domain.AutomationRule{
 		createValidTestRule(),
 		{
-			ID:           "test-id-2",
-			UserID:       "user-456",
-			JiraTicketID: "ticket-789",
+			ID:            "test-id-2",
+			UserID:        "user-456",
+			JiraTicketID:  "ticket-789",
 			JiraTicketKey: "PROJ-456",
-			Recipients:   []string{"active@example.com"},
-			CronSchedule: "0 12 * * *",
-			Status:       domain.AutomationStatusActive,
+			Recipients:    []string{"active@example.com"},
+			CronSchedule:  "0 12 * * *",
+			Status:        domain.AutomationStatusActive,
 		},
 	}
 

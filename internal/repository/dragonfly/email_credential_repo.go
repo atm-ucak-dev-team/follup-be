@@ -2,9 +2,9 @@ package dragonfly
 
 import (
 	"context"
-	"github.com/redis/go-redis/v9"
 	"github.com/atm-ucak/follup/internal/domain"
 	"github.com/atm-ucak/follup/internal/infra"
+	"github.com/redis/go-redis/v9"
 )
 
 // EmailCredentialRepositoryImpl implements EmailCredentialRepository

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/spf13/viper"
 	"github.com/atm-ucak/follup/internal/domain"
+	"github.com/spf13/viper"
 )
 
 // LoadConfig loads configuration from .env file and environment variables
@@ -87,7 +87,8 @@ func bindEnvVars() {
 	viper.BindEnv("JIRA_CLIENT_ID", "JIRA_CLIENT_ID")
 	viper.BindEnv("JIRA_CLIENT_SECRET", "JIRA_CLIENT_SECRET")
 	viper.BindEnv("JIRA_REDIRECT_URI", "JIRA_REDIRECT_URI")
-	viper.BindEnv("JIRA_BASE_URL", "JIRA_BASE_URL")
+	viper.BindEnv("JIRA_AUTH_BASE_URL", "JIRA_AUTH_BASE_URL")
+	viper.BindEnv("JIRA_API_BASE_URL", "JIRA_API_BASE_URL")
 
 	// Email Provider
 	viper.BindEnv("IMAP_HOST", "IMAP_HOST")
@@ -108,7 +109,7 @@ func buildConfig() (*domain.Config, error) {
 
 		// Encryption
 		AESSecretKey: viper.GetString("AES_SECRET_KEY"),
-		JWTSecret:     viper.GetString("JWT_SECRET"),
+		JWTSecret:    viper.GetString("JWT_SECRET"),
 
 		// DragonflyDB
 		DragonflyAddr:     viper.GetString("DRAGONFLY_ADDR"),
@@ -122,7 +123,8 @@ func buildConfig() (*domain.Config, error) {
 		JiraClientID:     viper.GetString("JIRA_CLIENT_ID"),
 		JiraClientSecret: viper.GetString("JIRA_CLIENT_SECRET"),
 		JiraRedirectURI:  viper.GetString("JIRA_REDIRECT_URI"),
-		JiraBaseURL:      viper.GetString("JIRA_BASE_URL"),
+		JiraAuthBaseURL:  viper.GetString("JIRA_AUTH_BASE_URL"),
+		JiraAPIBaseURL:   viper.GetString("JIRA_API_BASE_URL"),
 
 		// Email Provider
 		IMAPHost: viper.GetString("IMAP_HOST"),
