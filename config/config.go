@@ -61,6 +61,9 @@ func setDefaults() {
 	viper.SetDefault("SMTP_HOST", "smtp.gmail.com")
 	viper.SetDefault("SMTP_PORT", 587)
 
+	// Frontend callback URL defaults
+	viper.SetDefault("FRONTEND_CALLBACK_URL", "http://example.com/jira-callback")
+
 	// IMAP Polling defaults
 	viper.SetDefault("IMAP_POLL_INTERVAL_SECONDS", 300)
 }
@@ -89,6 +92,7 @@ func bindEnvVars() {
 	viper.BindEnv("JIRA_REDIRECT_URI", "JIRA_REDIRECT_URI")
 	viper.BindEnv("JIRA_AUTH_BASE_URL", "JIRA_AUTH_BASE_URL")
 	viper.BindEnv("JIRA_API_BASE_URL", "JIRA_API_BASE_URL")
+	viper.BindEnv("FRONTEND_CALLBACK_URL", "FRONTEND_CALLBACK_URL")
 
 	// Email Provider
 	viper.BindEnv("IMAP_HOST", "IMAP_HOST")
@@ -120,11 +124,12 @@ func buildConfig() (*domain.Config, error) {
 		PostgresDSN: viper.GetString("POSTGRES_DSN"),
 
 		// Jira OAuth
-		JiraClientID:     viper.GetString("JIRA_CLIENT_ID"),
-		JiraClientSecret: viper.GetString("JIRA_CLIENT_SECRET"),
-		JiraRedirectURI:  viper.GetString("JIRA_REDIRECT_URI"),
-		JiraAuthBaseURL:  viper.GetString("JIRA_AUTH_BASE_URL"),
-		JiraAPIBaseURL:   viper.GetString("JIRA_API_BASE_URL"),
+		JiraClientID:        viper.GetString("JIRA_CLIENT_ID"),
+		JiraClientSecret:    viper.GetString("JIRA_CLIENT_SECRET"),
+		JiraRedirectURI:     viper.GetString("JIRA_REDIRECT_URI"),
+		JiraAuthBaseURL:     viper.GetString("JIRA_AUTH_BASE_URL"),
+		JiraAPIBaseURL:      viper.GetString("JIRA_API_BASE_URL"),
+		FrontendCallbackURL: viper.GetString("FRONTEND_CALLBACK_URL"),
 
 		// Email Provider
 		IMAPHost: viper.GetString("IMAP_HOST"),

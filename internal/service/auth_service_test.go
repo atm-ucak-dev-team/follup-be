@@ -148,26 +148,46 @@ func (m *mockAutomationRepo) Delete(ctx context.Context, id string) error {
 
 // TestExchangeJiraCode_Success tests successful code exchange
 func TestExchangeJiraCode_Success(t *testing.T) {
-	// Setup test server
+	// Setup test server responses
 	tokenResp := map[string]interface{}{
 		"access_token":  "test_access_token",
 		"refresh_token": "test_refresh_token",
 		"expires_in":    3600,
+		"token_type":    "Bearer",
+		"scope":         "read:jira-user read:jira-work offline_access",
 	}
 
-	userResp := map[string]interface{}{
-		"account_id":    "user123",
-		"name":          "Test User",
-		"email_address": "test@example.com",
+	accessibleResourcesResp := []map[string]interface{}{
+		{
+			"id":        "test-cloud-id-123",
+			"name":      "Test Site",
+			"url":       "https://test.atlassian.net",
+			"scopes":    []string{"read:jira-user", "read:jira-work"},
+			"avatarUrl": "https://example.com/site-avatar.png",
+		},
+	}
+
+	userDetailsResp := map[string]interface{}{
+		"accountId":    "user123",
+		"displayName":  "Test User",
+		"emailAddress": "test@example.com",
+		"avatarUrls": map[string]string{
+			"16x16": "https://example.com/avatar16.png",
+			"24x24": "https://example.com/avatar24.png",
+			"32x32": "https://example.com/avatar32.png",
+			"48x48": "https://example.com/avatar48.png",
+		},
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/oauth/token" {
+		switch r.URL.Path {
+		case "/oauth/token":
+			// Handle POST request for token exchange
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
 			json.NewEncoder(w).Encode(tokenResp)
-		} else if r.URL.Path == "/me" {
-			// For testing, just check if Authorization header exists
+		case "/oauth/token/accessible-resources":
+			// Check Authorization header for API requests
 			auth := r.Header.Get("Authorization")
 			if auth == "" {
 				w.WriteHeader(http.StatusUnauthorized)
@@ -175,7 +195,19 @@ func TestExchangeJiraCode_Success(t *testing.T) {
 			}
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(userResp)
+			json.NewEncoder(w).Encode(accessibleResourcesResp)
+		case "/ex/jira/test-cloud-id-123/rest/api/2/myself":
+			// Check Authorization header for API requests
+			auth := r.Header.Get("Authorization")
+			if auth == "" {
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(userDetailsResp)
+		default:
+			w.WriteHeader(http.StatusNotFound)
 		}
 	}))
 	defer server.Close()
@@ -198,7 +230,7 @@ func TestExchangeJiraCode_Success(t *testing.T) {
 
 	// Execute
 	ctx := context.Background()
-	user, jwtToken, err := authService.(*AuthServiceImpl).ExchangeJiraCode(ctx, "test_code", "test_state")
+	user, tokenInfo, err := authService.(*AuthServiceImpl).ExchangeJiraCode(ctx, "test_code", "test_state")
 
 	// Assert
 	require.NoError(t, err)
@@ -206,8 +238,16 @@ func TestExchangeJiraCode_Success(t *testing.T) {
 	assert.Equal(t, "user123", user.ID)
 	assert.Equal(t, "Test User", user.Name)
 	assert.Equal(t, "test@example.com", user.Email)
-	// With JWT disabled, jwtToken should be empty
-	assert.Empty(t, jwtToken, "JWT token should be empty with JWT disabled")
+	assert.Equal(t, "test-cloud-id-123", user.CloudID)
+	assert.Equal(t, "https://example.com/avatar32.png", user.AvatarURL)
+
+	// Verify token info is returned
+	assert.NotNil(t, tokenInfo)
+	assert.Equal(t, "test_access_token", tokenInfo.AccessToken)
+	assert.Equal(t, "test_refresh_token", tokenInfo.RefreshToken)
+	assert.Equal(t, int64(3600), tokenInfo.ExpiresIn)
+	assert.Equal(t, "Bearer", tokenInfo.TokenType)
+	assert.Contains(t, tokenInfo.Scope, "read:jira-user")
 
 	// Verify OAuth token was saved
 	oauthToken, err := oauthRepo.GetByUserIDAndProvider(ctx, "user123", "jira")

@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Connected — Follup</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --green: #16a34a;
+      --green-light: #22c55e;
+      --green-pale: #dcfce7;
+      --text-primary: #0f172a;
+      --text-muted: #64748b;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+    }
+
+    html, body {
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100dvh;
+      padding: 24px;
+      position: relative;
+    }
+
+    /* Subtle background blobs */
+    body::before {
+      content: '';
+      position: fixed;
+      top: -80px;
+      right: -80px;
+      width: 260px;
+      height: 260px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #bbf7d0 0%, transparent 70%);
+      pointer-events: none;
+      animation: blobDrift 8s ease-in-out infinite alternate;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      bottom: -60px;
+      left: -60px;
+      width: 200px;
+      height: 200px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #d1fae5 0%, transparent 70%);
+      pointer-events: none;
+      animation: blobDrift 10s ease-in-out infinite alternate-reverse;
+    }
+
+    @keyframes blobDrift {
+      from { transform: translate(0, 0) scale(1); }
+      to   { transform: translate(20px, 20px) scale(1.08); }
+    }
+
+    /* Card */
+    .card {
+      background: var(--card-bg);
+      border-radius: 28px;
+      padding: 40px 28px 36px;
+      width: 100%;
+      max-width: 390px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+      box-shadow:
+        0 1px 3px rgba(0,0,0,0.04),
+        0 8px 32px rgba(0,0,0,0.07),
+        0 0 0 1px rgba(0,0,0,0.04);
+      animation: cardIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(24px) scale(0.96); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* Brand */
+    .brand {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 26px;
+      letter-spacing: -0.5px;
+      color: var(--text-primary);
+      margin-bottom: 36px;
+      animation: fadeDown 0.4s ease both;
+    }
+
+    @keyframes fadeDown {
+      from { opacity: 0; transform: translateY(-8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Checkmark */
+    .check-wrap {
+      position: relative;
+      width: 88px;
+      height: 88px;
+      margin-bottom: 32px;
+      animation: checkIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.15s both;
+    }
+
+    @keyframes checkIn {
+      from { opacity: 0; transform: scale(0.5); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+
+    /* Pulse rings */
+    .pulse-ring {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 2px solid var(--green-light);
+      animation: pulseRing 2s ease-out infinite;
+      opacity: 0;
+    }
+
+    .pulse-ring:nth-child(2) {
+      animation-delay: 0.6s;
+    }
+
+    .pulse-ring:nth-child(3) {
+      animation-delay: 1.2s;
+    }
+
+    @keyframes pulseRing {
+      0%   { transform: scale(1);    opacity: 0.6; }
+      100% { transform: scale(1.7);  opacity: 0; }
+    }
+
+    /* Circle */
+    .check-circle {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: var(--green-light);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 20px rgba(34, 197, 94, 0.35);
+    }
+
+    .check-circle svg {
+      width: 40px;
+      height: 40px;
+      stroke: #fff;
+      stroke-width: 3;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      fill: none;
+      animation: drawCheck 0.4s ease 0.4s both;
+    }
+
+    @keyframes drawCheck {
+      from { stroke-dashoffset: 60; opacity: 0; }
+      to   { stroke-dashoffset: 0;  opacity: 1; }
+    }
+
+    .check-circle svg polyline {
+      stroke-dasharray: 60;
+      stroke-dashoffset: 60;
+      animation: drawCheck 0.4s ease 0.45s forwards;
+    }
+
+    /* Text */
+    .greeting {
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 500;
+      font-size: 15px;
+      color: var(--text-muted);
+      text-align: center;
+      margin-bottom: 6px;
+      animation: fadeUp 0.4s ease 0.25s both;
+    }
+
+    .greeting span {
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .caption-main {
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 500;
+      font-size: 17px;
+      color: var(--text-primary);
+      text-align: center;
+      line-height: 1.4;
+      margin-bottom: 10px;
+      animation: fadeUp 0.4s ease 0.3s both;
+    }
+
+    .caption-sub {
+      font-size: 14px;
+      color: var(--text-muted);
+      text-align: center;
+      line-height: 1.5;
+      animation: fadeUp 0.4s ease 0.4s both;
+    }
+
+    .caption-sub .count {
+      font-weight: 700;
+      color: var(--green);
+      font-variant-numeric: tabular-nums;
+      display: inline-block;
+      min-width: 10px;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Progress bar */
+    .progress-bar-wrap {
+      width: 100%;
+      height: 3px;
+      background: var(--green-pale);
+      border-radius: 99px;
+      margin-top: 28px;
+      overflow: hidden;
+      animation: fadeUp 0.4s ease 0.5s both;
+    }
+
+    .progress-bar {
+      height: 100%;
+      width: 100%;
+      background: var(--green-light);
+      border-radius: 99px;
+      transform-origin: left;
+      transform: scaleX(0);
+      transition: transform linear;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="brand">Follup</div>
+
+    <div class="check-wrap">
+      <div class="pulse-ring"></div>
+      <div class="pulse-ring"></div>
+      <div class="pulse-ring"></div>
+      <div class="check-circle">
+        <svg viewBox="0 0 24 24">
+          <polyline points="4,13 9,18 20,7"></polyline>
+        </svg>
+      </div>
+    </div>
+
+    <p class="greeting">Hi, <span>{{ .UserName }}!</span></p>
+    <p class="caption-main">Now we're connected with your Jira</p>
+    <p class="caption-sub">
+      Bringing you back to Follup in <span class="count" id="countdown">3</span>s
+    </p>
+
+    <div class="progress-bar-wrap">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+  </div>
+
+  <script>
+    const redirectURL = "{{ .RedirectURL }}";
+    const total = 3;
+    let remaining = total;
+
+    const countEl = document.getElementById("countdown");
+    const bar = document.getElementById("progressBar");
+
+    // Start progress bar
+    requestAnimationFrame(() => {
+      bar.style.transition = `transform ${total}s linear`;
+      bar.style.transform = "scaleX(1)";
+    });
+
+    // Countdown tick
+    const tick = setInterval(() => {
+      remaining -= 1;
+      countEl.textContent = remaining;
+      if (remaining <= 0) {
+        clearInterval(tick);
+        window.location.href = redirectURL;
+      }
+    }, 1000);
+  </script>
+</body>
+</html>

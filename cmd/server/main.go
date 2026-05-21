@@ -129,7 +129,7 @@ func main() {
 	log.Println("Initialized services")
 
 	// 5. Init handlers (inject services)
-	authHandler := handler.NewAuthHandler(authService)
+	authHandler := handler.NewAuthHandler(authService, cfg)
 	jiraHandler := handler.NewJiraHandler(jiraService)
 	emailHandler := handler.NewEmailHandler(emailService)
 	automationHandler := handler.NewAutomationHandler(automationService)

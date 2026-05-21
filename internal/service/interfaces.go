@@ -8,8 +8,8 @@ import (
 
 // AuthService defines the interface for authentication operations
 type AuthService interface {
-	// ExchangeJiraCode exchanges the authorization code for access token and returns user with JWT
-	ExchangeJiraCode(ctx context.Context, code, state string) (*domain.User, string, error)
+	// ExchangeJiraCode exchanges the authorization code for access token and returns user with token info
+	ExchangeJiraCode(ctx context.Context, code, state string) (*domain.User, *JiraTokenInfo, error)
 
 	// RefreshJiraToken refreshes an expired access token and returns new access token
 	RefreshJiraToken(ctx context.Context, userID string) (string, error)

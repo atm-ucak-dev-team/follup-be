@@ -11,29 +11,44 @@ import (
 
 	"github.com/atm-ucak/follup/internal/domain"
 	"github.com/atm-ucak/follup/internal/handler"
+	"github.com/atm-ucak/follup/internal/service"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+// createTestConfig creates a minimal config for testing
+func createTestConfig() *domain.Config {
+	return &domain.Config{
+		FrontendCallbackURL: "http://localhost:3000/callback",
+	}
+}
+
 // Mock AuthService for testing
 type mockAuthService struct {
-	exchangeCodeFunc  func(ctx context.Context, code, state string) (*domain.User, string, error)
+	exchangeCodeFunc  func(ctx context.Context, code, state string) (*domain.User, *service.JiraTokenInfo, error)
 	refreshTokenFunc  func(ctx context.Context, userID string) (string, error)
 	generateURLFunc   func(state string) string
 	validateTokenFunc func(token *domain.OAuthToken) bool
 }
 
-func (m *mockAuthService) ExchangeJiraCode(ctx context.Context, code, state string) (*domain.User, string, error) {
+func (m *mockAuthService) ExchangeJiraCode(ctx context.Context, code, state string) (*domain.User, *service.JiraTokenInfo, error) {
 	if m.exchangeCodeFunc != nil {
 		return m.exchangeCodeFunc(ctx, code, state)
+	}
+	tokenInfo := &service.JiraTokenInfo{
+		AccessToken:  "test_token",
+		RefreshToken: "test_refresh",
+		ExpiresIn:    3600,
+		TokenType:    "Bearer",
+		Scope:        "read:jira-user",
 	}
 	// Default implementation
 	return &domain.User{
 		ID:    "test-user-id",
 		Name:  "Test User",
 		Email: "test@example.com",
-	}, "", nil // JWT disabled - returning empty token
+	}, tokenInfo, nil
 }
 
 func (m *mockAuthService) RefreshJiraToken(ctx context.Context, userID string) (string, error) {
@@ -69,7 +84,7 @@ func TestConnectJira_JSONResponseSuccess(t *testing.T) {
 			return "https://auth.atlassian.com/authorize?audience=api.atlassian.com&client_id=test&state=" + state
 		},
 	}
-	h := handler.NewAuthHandler(mockAuth)
+	h := handler.NewAuthHandler(mockAuth, createTestConfig())
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/jira/connect", nil)
 	rec := httptest.NewRecorder()
@@ -94,20 +109,28 @@ func TestConnectJira_JSONResponseSuccess(t *testing.T) {
 	assert.Contains(t, connectUrl, "audience=api.atlassian.com")
 }
 
-// TestJiraCallback_Success tests successful OAuth callback
+// TestJiraCallback_Success tests successful OAuth callback with HTML response
 func TestJiraCallback_Success(t *testing.T) {
 	// Setup
 	e := echo.New()
 	mockAuth := &mockAuthService{
-		exchangeCodeFunc: func(ctx context.Context, code, state string) (*domain.User, string, error) {
+		exchangeCodeFunc: func(ctx context.Context, code, state string) (*domain.User, *service.JiraTokenInfo, error) {
+			tokenInfo := &service.JiraTokenInfo{
+				AccessToken:  "test_access_token",
+				RefreshToken: "test_refresh_token",
+				ExpiresIn:    3600,
+				TokenType:    "Bearer",
+				Scope:        "read:jira-user",
+				ExpiresAt:    time.Now().Add(3600 * time.Second),
+			}
 			return &domain.User{
 				ID:    "user-123",
 				Name:  "John Doe",
 				Email: "john@example.com",
-			}, "", nil // JWT disabled - returning empty token
+			}, tokenInfo, nil
 		},
 	}
-	h := handler.NewAuthHandler(mockAuth)
+	h := handler.NewAuthHandler(mockAuth, createTestConfig())
 
 	// Create request with query parameters
 	params := url.Values{}
@@ -125,21 +148,20 @@ func TestJiraCallback_Success(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, rec.Code)
 
-	var response map[string]interface{}
-	err = json.Unmarshal(rec.Body.Bytes(), &response)
-	require.NoError(t, err)
+	// Check that response is HTML
+	contentType := rec.Header().Get("Content-Type")
+	assert.Contains(t, contentType, "text/html", "Response should be HTML")
 
-	assert.Contains(t, response, "access_token")
-	assert.Contains(t, response, "user")
+	// Check that HTML contains user name
+	body := rec.Body.String()
+	assert.Contains(t, body, "John Doe", "HTML should contain user name")
+	assert.Contains(t, body, "Hi,", "HTML should contain greeting")
 
-	// With JWT disabled, access_token should be empty string
-	accessToken := response["access_token"]
-	assert.Equal(t, "", accessToken, "access_token should be empty with JWT disabled")
-
-	user := response["user"].(map[string]interface{})
-	assert.Equal(t, "user-123", user["id"])
-	assert.Equal(t, "John Doe", user["name"])
-	assert.Equal(t, "john@example.com", user["email"])
+	// Check that HTML contains redirect URL with tokens
+	assert.Contains(t, body, "redirectURL", "HTML should contain redirect URL variable")
+	assert.Contains(t, body, "access_token=test_access_token", "Redirect URL should contain access token")
+	assert.Contains(t, body, "refresh_token=test_refresh_token", "Redirect URL should contain refresh token")
+	assert.Contains(t, body, "user_name=John", "Redirect URL should contain user name")
 }
 
 // TestJiraCallback_InvalidCode tests callback with invalid authorization code
@@ -147,11 +169,11 @@ func TestJiraCallback_InvalidCode(t *testing.T) {
 	// Setup
 	e := echo.New()
 	mockAuth := &mockAuthService{
-		exchangeCodeFunc: func(ctx context.Context, code, state string) (*domain.User, string, error) {
-			return nil, "", assert.AnError
+		exchangeCodeFunc: func(ctx context.Context, code, state string) (*domain.User, *service.JiraTokenInfo, error) {
+			return nil, nil, assert.AnError
 		},
 	}
-	h := handler.NewAuthHandler(mockAuth)
+	h := handler.NewAuthHandler(mockAuth, createTestConfig())
 
 	// Create request with invalid code
 	params := url.Values{}
@@ -184,7 +206,7 @@ func TestJiraCallback_MissingState(t *testing.T) {
 	// Setup
 	e := echo.New()
 	mockAuth := &mockAuthService{}
-	h := handler.NewAuthHandler(mockAuth)
+	h := handler.NewAuthHandler(mockAuth, createTestConfig())
 
 	// Create request without state parameter
 	params := url.Values{}
@@ -217,7 +239,7 @@ func TestJiraCallback_MissingCode(t *testing.T) {
 	// Setup
 	e := echo.New()
 	mockAuth := &mockAuthService{}
-	h := handler.NewAuthHandler(mockAuth)
+	h := handler.NewAuthHandler(mockAuth, createTestConfig())
 
 	// Create request without code parameter
 	params := url.Values{}
@@ -254,7 +276,7 @@ func TestRefreshToken_Success(t *testing.T) {
 			return "new-access-token-xyz", nil
 		},
 	}
-	h := handler.NewAuthHandler(mockAuth)
+	h := handler.NewAuthHandler(mockAuth, createTestConfig())
 
 	// Create request
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/jira/refresh", nil)
@@ -288,7 +310,7 @@ func TestRefreshToken_TokenExpired(t *testing.T) {
 			return "", assert.AnError
 		},
 	}
-	h := handler.NewAuthHandler(mockAuth)
+	h := handler.NewAuthHandler(mockAuth, createTestConfig())
 
 	// Create request
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/jira/refresh", nil)
@@ -320,7 +342,7 @@ func TestRefreshToken_Unauthorized(t *testing.T) {
 	// Setup
 	e := echo.New()
 	mockAuth := &mockAuthService{}
-	h := handler.NewAuthHandler(mockAuth)
+	h := handler.NewAuthHandler(mockAuth, createTestConfig())
 
 	// Create request without user ID in context
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/jira/refresh", nil)
@@ -369,7 +391,7 @@ func TestErrorResponseFormat(t *testing.T) {
 	// Setup
 	e := echo.New()
 	mockAuth := &mockAuthService{}
-	h := handler.NewAuthHandler(mockAuth)
+	h := handler.NewAuthHandler(mockAuth, createTestConfig())
 
 	// Create request that will trigger an error
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/jira/callback", nil)

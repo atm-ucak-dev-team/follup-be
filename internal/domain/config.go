@@ -19,11 +19,12 @@ type Config struct {
 	PostgresDSN string
 
 	// Jira OAuth
-	JiraClientID     string
-	JiraClientSecret string
-	JiraRedirectURI  string
-	JiraAuthBaseURL  string // for OAuth operations
-	JiraAPIBaseURL   string
+	JiraClientID        string
+	JiraClientSecret    string
+	JiraRedirectURI     string
+	JiraAuthBaseURL     string // for OAuth operations
+	JiraAPIBaseURL      string
+	FrontendCallbackURL string // where users are redirected after OAuth success
 
 	// Email Provider
 	IMAPHost string

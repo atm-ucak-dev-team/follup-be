@@ -57,25 +57,58 @@ type jiraUserResponse struct {
 	Email     string `json:"email_address"`
 }
 
-// ExchangeJiraCode exchanges the authorization code for access token and returns user with JWT
-func (s *AuthServiceImpl) ExchangeJiraCode(ctx context.Context, code, state string) (*domain.User, string, error) {
+// jiraAccessibleResource represents a Jira Cloud resource
+type jiraAccessibleResource struct {
+	ID        string   `json:"id"`        // Cloud ID
+	Name      string   `json:"name"`      // Site name
+	URL       string   `json:"url"`       // Site URL
+	Scopes    []string `json:"scopes"`    // Granted scopes
+	AvatarURL string   `json:"avatarUrl"` // Site avatar
+}
+
+// jiraUserDetailResponse from GET /ex/jira/{cloudId}/rest/api/2/myself
+type jiraUserDetailResponse struct {
+	AccountID  string            `json:"accountId"`
+	Name       string            `json:"displayName"`
+	Email      string            `json:"emailAddress"`
+	AvatarURLs map[string]string `json:"avatarUrls"` // "16x16", "24x24", "32x32", "48x48"
+}
+
+// JiraTokenInfo contains OAuth token information to return to client
+type JiraTokenInfo struct {
+	AccessToken  string    `json:"access_token"`
+	RefreshToken string    `json:"refresh_token"`
+	ExpiresAt    time.Time `json:"expires_at"`
+	ExpiresIn    int64     `json:"expires_in"` // Seconds until expiration
+	TokenType    string    `json:"token_type"`
+	Scope        string    `json:"scope"`
+}
+
+// ExchangeJiraCode exchanges the authorization code for access token and returns user with token info
+func (s *AuthServiceImpl) ExchangeJiraCode(ctx context.Context, code, state string) (*domain.User, *JiraTokenInfo, error) {
 	// Exchange code for token
 	tokenResp, err := s.exchangeCodeForToken(ctx, code)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to exchange code for token: %w", err)
+		return nil, nil, fmt.Errorf("failed to exchange code for token: %w", err)
 	}
 	log.Println("accessTOken", tokenResp.AccessToken)
 
-	// Get user info from Jira
-	jiraUser, err := s.getJiraUserInfo(ctx, tokenResp.AccessToken)
+	// Step 1: Get accessible resources to find cloud ID
+	cloudID, err := s.getAccessibleResources(ctx, tokenResp.AccessToken)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to get Jira user info: %w", err)
+		return nil, nil, fmt.Errorf("failed to get accessible resources: %w", err)
+	}
+
+	// Step 2: Get user details using cloud ID
+	jiraUser, err := s.getJiraUserDetails(ctx, tokenResp.AccessToken, cloudID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get Jira user details: %w", err)
 	}
 
 	// Get or create user
-	user, err := s.getOrCreateUser(ctx, jiraUser)
+	user, err := s.getOrCreateUser(ctx, jiraUser, cloudID)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to get or create user: %w", err)
+		return nil, nil, fmt.Errorf("failed to get or create user: %w", err)
 	}
 
 	// Save OAuth token with TTL
@@ -88,19 +121,20 @@ func (s *AuthServiceImpl) ExchangeJiraCode(ctx context.Context, code, state stri
 	}
 
 	if err := s.oauthRepo.Create(ctx, oauthToken); err != nil {
-		return nil, "", fmt.Errorf("failed to save OAuth token: %w", err)
+		return nil, nil, fmt.Errorf("failed to save OAuth token: %w", err)
 	}
 
-	// DISABLED: JWT generation
-	// jwtToken, err := s.generateJWT(user.ID)
-	// if err != nil {
-	//     return nil, "", fmt.Errorf("failed to generate JWT: %w", err)
-	// }
+	// Create token info response
+	tokenInfo := &JiraTokenInfo{
+		AccessToken:  tokenResp.AccessToken,
+		RefreshToken: tokenResp.RefreshToken,
+		ExpiresAt:    time.Now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second),
+		ExpiresIn:    tokenResp.ExpiresIn,
+		TokenType:    tokenResp.TokenType,
+		Scope:        tokenResp.Scope,
+	}
 
-	// Return empty token instead of JWT
-	jwtToken := ""
-
-	return user, jwtToken, nil
+	return user, tokenInfo, nil
 }
 
 // RefreshJiraToken refreshes an expired access token and returns new access token
@@ -223,11 +257,46 @@ func (s *AuthServiceImpl) refreshToken(ctx context.Context, refreshToken string)
 	return &tokenResp, nil
 }
 
-// getJiraUserInfo retrieves user information from Jira API
-func (s *AuthServiceImpl) getJiraUserInfo(ctx context.Context, accessToken string) (*jiraUserResponse, error) {
-	userInfoURL := fmt.Sprintf("%s/me", s.config.JiraAPIBaseURL)
+// getAccessibleResources retrieves accessible Jira Cloud resources and returns the cloud ID
+func (s *AuthServiceImpl) getAccessibleResources(ctx context.Context, accessToken string) (string, error) {
+	resourcesURL := fmt.Sprintf("%s/oauth/token/accessible-resources", s.config.JiraAPIBaseURL)
 
-	req, err := http.NewRequestWithContext(ctx, "GET", userInfoURL, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", resourcesURL, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	var resources []jiraAccessibleResource
+	if err := json.NewDecoder(resp.Body).Decode(&resources); err != nil {
+		return "", fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	if len(resources) == 0 {
+		return "", fmt.Errorf("no accessible Jira resources found")
+	}
+
+	// Return the cloud ID from the first resource
+	return resources[0].ID, nil
+}
+
+// getJiraUserDetails retrieves detailed user information from Jira API using cloud ID
+func (s *AuthServiceImpl) getJiraUserDetails(ctx context.Context, accessToken, cloudID string) (*jiraUserDetailResponse, error) {
+	userDetailsURL := fmt.Sprintf("%s/ex/jira/%s/rest/api/2/myself", s.config.JiraAPIBaseURL, cloudID)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", userDetailsURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -245,7 +314,7 @@ func (s *AuthServiceImpl) getJiraUserInfo(ctx context.Context, accessToken strin
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
-	var userResp jiraUserResponse
+	var userResp jiraUserDetailResponse
 	if err := json.NewDecoder(resp.Body).Decode(&userResp); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
@@ -254,16 +323,26 @@ func (s *AuthServiceImpl) getJiraUserInfo(ctx context.Context, accessToken strin
 }
 
 // getOrCreateUser retrieves existing user or creates new one from Jira user info
-func (s *AuthServiceImpl) getOrCreateUser(ctx context.Context, jiraUser *jiraUserResponse) (*domain.User, error) {
+func (s *AuthServiceImpl) getOrCreateUser(ctx context.Context, jiraUser *jiraUserDetailResponse, cloudID string) (*domain.User, error) {
 	// Try to get user by email first
 	user, err := s.userRepo.GetByEmail(ctx, jiraUser.Email)
 	if err == nil {
 		return user, nil
 	}
 
+	// Extract avatar URL (prefer 32x32)
+	avatarURL := ""
+	if jiraUser.AvatarURLs != nil {
+		if url, ok := jiraUser.AvatarURLs["32x32"]; ok {
+			avatarURL = url
+		}
+	}
+
 	// Create new user
 	newUser := &domain.User{
 		ID:        jiraUser.AccountID, // Use Jira account ID as user ID
+		CloudID:   cloudID,            // Jira Cloud instance ID
+		AvatarURL: avatarURL,          // User avatar URL
 		Name:      jiraUser.Name,
 		Email:     jiraUser.Email,
 		CreatedAt: time.Now(),

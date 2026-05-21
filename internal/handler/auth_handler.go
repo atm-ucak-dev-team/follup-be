@@ -1,23 +1,33 @@
 package handler
 
 import (
+	"embed"
+	"fmt"
+	"html/template"
 	"log"
 	"net/http"
+	"net/url"
 	"time"
 
+	"github.com/atm-ucak/follup/internal/domain"
 	"github.com/atm-ucak/follup/internal/service"
 	"github.com/labstack/echo/v4"
 )
 
+//go:embed callback_page.html
+var callbackTemplate embed.FS
+
 // AuthHandler handles authentication-related HTTP requests
 type AuthHandler struct {
 	authService service.AuthService
+	config      *domain.Config
 }
 
 // NewAuthHandler creates a new AuthHandler instance
-func NewAuthHandler(authService service.AuthService) *AuthHandler {
+func NewAuthHandler(authService service.AuthService, config *domain.Config) *AuthHandler {
 	return &AuthHandler{
 		authService: authService,
+		config:      config,
 	}
 }
 
@@ -54,23 +64,93 @@ func (h *AuthHandler) JiraCallback(c echo.Context) error {
 
 	log.Println("code", code)
 
-	// Exchange the authorization code for JWT and user info
-	user, accessToken, err := h.authService.ExchangeJiraCode(c.Request().Context(), code, state)
+	// Exchange the authorization code for OAuth tokens and user info
+	user, tokenInfo, err := h.authService.ExchangeJiraCode(c.Request().Context(), code, state)
 	if err != nil {
 		return buildErrorResponse(c, http.StatusUnauthorized, "INVALID_CODE", "failed to exchange authorization code: "+err.Error())
 	}
 
-	// Build success response
-	response := map[string]interface{}{
-		"access_token": accessToken,
-		"user": map[string]interface{}{
-			"id":    user.ID,
-			"name":  user.Name,
-			"email": user.Email,
-		},
+	// Build redirect URL with OAuth tokens as query parameters
+	redirectURL, err := buildRedirectURL(h.config.FrontendCallbackURL, tokenInfo, user)
+	if err != nil {
+		log.Printf("Failed to build redirect URL: %v", err)
+		// Fallback to JSON response if URL construction fails
+		response := map[string]interface{}{
+			"access_token":  tokenInfo.AccessToken,
+			"refresh_token": tokenInfo.RefreshToken,
+			"expires_at":    tokenInfo.ExpiresAt,
+			"expires_in":    tokenInfo.ExpiresIn,
+			"token_type":    tokenInfo.TokenType,
+			"scope":         tokenInfo.Scope,
+			"user": map[string]interface{}{
+				"id":         user.ID,
+				"name":       user.Name,
+				"email":      user.Email,
+				"cloud_id":   user.CloudID,
+				"avatar_url": user.AvatarURL,
+			},
+		}
+		return c.JSON(http.StatusOK, response)
 	}
 
-	return c.JSON(http.StatusOK, response)
+	// Load the embedded HTML template
+	templateContent, err := callbackTemplate.ReadFile("callback_page.html")
+	if err != nil {
+		log.Printf("Failed to read embedded template: %v", err)
+		// Fallback to JSON response if template loading fails
+		response := map[string]interface{}{
+			"access_token":  tokenInfo.AccessToken,
+			"refresh_token": tokenInfo.RefreshToken,
+			"expires_at":    tokenInfo.ExpiresAt,
+			"expires_in":    tokenInfo.ExpiresIn,
+			"token_type":    tokenInfo.TokenType,
+			"scope":         tokenInfo.Scope,
+			"user": map[string]interface{}{
+				"id":         user.ID,
+				"name":       user.Name,
+				"email":      user.Email,
+				"cloud_id":   user.CloudID,
+				"avatar_url": user.AvatarURL,
+			},
+		}
+		return c.JSON(http.StatusOK, response)
+	}
+
+	// Parse and execute the template
+	tmpl, err := template.New("callback").Parse(string(templateContent))
+	if err != nil {
+		log.Printf("Failed to parse template: %v", err)
+		// Fallback to JSON response if template parsing fails
+		response := map[string]interface{}{
+			"access_token":  tokenInfo.AccessToken,
+			"refresh_token": tokenInfo.RefreshToken,
+			"expires_at":    tokenInfo.ExpiresAt,
+			"expires_in":    tokenInfo.ExpiresIn,
+			"token_type":    tokenInfo.TokenType,
+			"scope":         tokenInfo.Scope,
+			"user": map[string]interface{}{
+				"id":         user.ID,
+				"name":       user.Name,
+				"email":      user.Email,
+				"cloud_id":   user.CloudID,
+				"avatar_url": user.AvatarURL,
+			},
+		}
+		return c.JSON(http.StatusOK, response)
+	}
+
+	// Prepare template data
+	data := struct {
+		UserName    string
+		RedirectURL string
+	}{
+		UserName:    user.Name,
+		RedirectURL: redirectURL,
+	}
+
+	// Execute template and return HTML response
+	c.Response().Header().Set("Content-Type", "text/html; charset=utf-8")
+	return tmpl.Execute(c.Response().Writer, data)
 }
 
 // RefreshToken refreshes the Jira OAuth access token
@@ -131,4 +211,32 @@ func getUserIDFromContext(c echo.Context) string {
 func generateState() string {
 	// Simple implementation - in production, use crypto/rand
 	return time.Now().Format("20060102150405")
+}
+
+// buildRedirectURL constructs the frontend callback URL with OAuth tokens as query parameters
+func buildRedirectURL(baseURL string, tokenInfo *service.JiraTokenInfo, user *domain.User) (string, error) {
+	// Parse the base URL
+	parsedURL, err := url.Parse(baseURL)
+	if err != nil {
+		return "", err
+	}
+
+	// Build query parameters with all OAuth data
+	params := url.Values{}
+	params.Add("access_token", tokenInfo.AccessToken)
+	params.Add("refresh_token", tokenInfo.RefreshToken)
+	params.Add("expires_at", tokenInfo.ExpiresAt.Format(time.RFC3339))
+	params.Add("expires_in", fmt.Sprintf("%d", tokenInfo.ExpiresIn))
+	params.Add("token_type", tokenInfo.TokenType)
+	params.Add("scope", tokenInfo.Scope)
+	params.Add("user_id", user.ID)
+	params.Add("user_name", user.Name)
+	params.Add("user_email", user.Email)
+	params.Add("cloud_id", user.CloudID)
+	params.Add("avatar_url", user.AvatarURL)
+
+	// Set query parameters
+	parsedURL.RawQuery = params.Encode()
+
+	return parsedURL.String(), nil
 }
