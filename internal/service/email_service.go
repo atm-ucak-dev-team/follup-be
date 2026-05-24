@@ -20,7 +20,6 @@ type EmailServiceImpl struct {
 	emailRepo      repository.EmailCredentialRepository
 	automationRepo repository.AutomationRuleRepository
 	threadRepo     repository.EmailThreadRepository
-	jiraService    JiraService
 	config         *domain.Config
 }
 
@@ -29,14 +28,12 @@ func NewEmailService(
 	emailRepo repository.EmailCredentialRepository,
 	automationRepo repository.AutomationRuleRepository,
 	threadRepo repository.EmailThreadRepository,
-	jiraService JiraService,
 	config *domain.Config,
 ) EmailService {
 	return &EmailServiceImpl{
 		emailRepo:      emailRepo,
 		automationRepo: automationRepo,
 		threadRepo:     threadRepo,
-		jiraService:    jiraService,
 		config:         config,
 	}
 }
@@ -87,15 +84,9 @@ func (s *EmailServiceImpl) SendFollowUpByAutomation(ctx context.Context, automat
 		return fmt.Errorf("failed to decrypt password: %w", err)
 	}
 
-	// Get Jira ticket details for context
-	jiraIssue, err := s.jiraService.GetIssue(ctx, automation.UserID, automation.JiraTicketKey)
-	if err != nil {
-		return fmt.Errorf("failed to get Jira issue: %w", err)
-	}
-
-	// Compose email body with ticket info
-	subject := fmt.Sprintf("Follow-up: %s", jiraIssue.Summary)
-	body := s.composeEmailBody(*jiraIssue, automation)
+	// Compose email body with ticket info (using available data from automation)
+	subject := fmt.Sprintf("Follow-up: %s", automation.JiraTicketKey)
+	body := s.composeEmailBodyForAutomation(automation)
 
 	// Connect to SMTP (STARTTLS)
 	if err := s.sendEmail(cred.EmailAddress, password, cred.SMTPHost, subject, body, automation.Recipients); err != nil {
@@ -352,22 +343,17 @@ func (s *EmailServiceImpl) sendEmail(from, password, host, subject, body string,
 }
 
 // composeEmailBody creates the email body with Jira ticket context
-func (s *EmailServiceImpl) composeEmailBody(jiraIssue domain.JiraIssue, automation *domain.AutomationRule) string {
+func (s *EmailServiceImpl) composeEmailBodyForAutomation(automation *domain.AutomationRule) string {
 	return fmt.Sprintf(`Hello,
 
 This is a follow-up regarding the Jira ticket: %s
 
-Summary: %s
-Status: %s
-Stakeholders: %s
-
 Please review and take appropriate action.
+
+Note: For detailed ticket information, please check your Jira instance directly.
 
 Best regards`,
 		automation.JiraTicketKey,
-		jiraIssue.Summary,
-		jiraIssue.Status,
-		strings.Join(jiraIssue.Stakeholders, ", "),
 	)
 }
 

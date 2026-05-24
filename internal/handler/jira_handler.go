@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"log"
 	"net/http"
 
 	"github.com/atm-ucak/follup/internal/service"
@@ -20,22 +21,29 @@ func NewJiraHandler(jiraService service.JiraService) *JiraHandler {
 	}
 }
 
-// GetIssues retrieves Jira issues for the authenticated user with optional filters
+// GetIssues retrieves Jira issues using Atlassian Cloud API JQL search
 func (h *JiraHandler) GetIssues(c echo.Context) error {
-	// Get user from JWT context (set by middleware)
-	userID := getUserIDFromContext(c)
-	if userID == "" {
-		return buildErrorResponse(c, http.StatusUnauthorized, "UNAUTHORIZED", "user not authenticated")
+	// Get cloud ID and access token from headers
+	cloudID := getCloudIDFromContext(c)
+	if cloudID == "" {
+		return buildErrorResponse(c, http.StatusUnauthorized, "MISSING_CLOUD_ID", "X-User-Cloud-ID header is required")
+	}
+
+	accessToken := getAccessTokenFromContext(c)
+	if accessToken == "" {
+		return buildErrorResponse(c, http.StatusUnauthorized, "MISSING_ACCESS_TOKEN", "X-Jira-Access-Token header is required")
 	}
 
 	// Parse query parameters
-	project := c.QueryParam("project")
-	status := c.QueryParam("status")
+	search := c.QueryParam("search")
+	limit := c.QueryParam("limit")
+
+	log.Println(search, limit)
 
 	// Get issues from Jira service
-	issues, err := h.jiraService.GetIssues(c.Request().Context(), userID, project, status)
+	issues, err := h.jiraService.GetIssues(c.Request().Context(), cloudID, accessToken, search, limit)
 	if err != nil {
-		// Check if it's a token expiration error
+		// Check if it's a token expired error
 		if errors.Is(err, ErrTokenExpired) {
 			return buildErrorResponse(c, http.StatusUnauthorized, "JIRA_TOKEN_EXPIRED", "Jira access token has expired")
 		}
@@ -43,38 +51,39 @@ func (h *JiraHandler) GetIssues(c echo.Context) error {
 		return buildErrorResponse(c, http.StatusBadGateway, "JIRA_API_ERROR", "failed to fetch issues from Jira: "+err.Error())
 	}
 
-	// Build success response
-	response := map[string]interface{}{
-		"issues": issues,
-	}
-
-	return c.JSON(http.StatusOK, response)
+	// Return array directly instead of wrapped in object
+	return c.JSON(http.StatusOK, issues)
 }
 
-// GetIssue retrieves a single Jira issue by ticket key
+// GetIssue retrieves a single Jira issue by issue ID using Atlassian Cloud API
 func (h *JiraHandler) GetIssue(c echo.Context) error {
-	// Get user from JWT context (set by middleware)
-	userID := getUserIDFromContext(c)
-	if userID == "" {
-		return buildErrorResponse(c, http.StatusUnauthorized, "UNAUTHORIZED", "user not authenticated")
+	// Get cloud ID and access token from headers
+	cloudID := getCloudIDFromContext(c)
+	if cloudID == "" {
+		return buildErrorResponse(c, http.StatusUnauthorized, "MISSING_CLOUD_ID", "X-User-Cloud-ID header is required")
 	}
 
-	// Get ticket key from URL parameter
-	ticketKey := c.Param("ticket_key")
-	if ticketKey == "" {
-		return buildErrorResponse(c, http.StatusBadRequest, "MISSING_TICKET_KEY", "ticket_key parameter is required")
+	accessToken := getAccessTokenFromContext(c)
+	if accessToken == "" {
+		return buildErrorResponse(c, http.StatusUnauthorized, "MISSING_ACCESS_TOKEN", "X-Jira-Access-Token header is required")
+	}
+
+	// Get issue ID from URL parameter
+	issueID := c.Param("ticket_key")
+	if issueID == "" {
+		return buildErrorResponse(c, http.StatusBadRequest, "MISSING_ISSUE_ID", "ticket_key parameter is required")
 	}
 
 	// Get issue from Jira service
-	issue, err := h.jiraService.GetIssue(c.Request().Context(), userID, ticketKey)
+	issue, err := h.jiraService.GetIssue(c.Request().Context(), cloudID, accessToken, issueID)
 	if err != nil {
+		// Check if it's a token expired error
+		if errors.Is(err, ErrTokenExpired) {
+			return buildErrorResponse(c, http.StatusUnauthorized, "JIRA_TOKEN_EXPIRED", "Jira access token has expired")
+		}
 		// Check if it's a not found error
 		if errors.Is(err, ErrIssueNotFound) {
 			return buildErrorResponse(c, http.StatusNotFound, "ISSUE_NOT_FOUND", "Jira issue not found")
-		}
-		// Check if it's a token expiration error
-		if errors.Is(err, ErrTokenExpired) {
-			return buildErrorResponse(c, http.StatusUnauthorized, "JIRA_TOKEN_EXPIRED", "Jira access token has expired")
 		}
 		// Handle other Jira API errors
 		return buildErrorResponse(c, http.StatusBadGateway, "JIRA_API_ERROR", "failed to fetch issue from Jira: "+err.Error())
@@ -89,3 +98,13 @@ var (
 	ErrTokenExpired  = errors.New("token expired")
 	ErrIssueNotFound = errors.New("issue not found")
 )
+
+// getCloudIDFromContext extracts the X-User-Cloud-ID header from the request context
+func getCloudIDFromContext(c echo.Context) string {
+	return c.Request().Header.Get("X-User-Cloud-ID")
+}
+
+// getAccessTokenFromContext extracts the X-Jira-Access-Token header from the request context
+func getAccessTokenFromContext(c echo.Context) string {
+	return c.Request().Header.Get("X-Jira-Access-Token")
+}

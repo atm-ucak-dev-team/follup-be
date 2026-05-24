@@ -38,7 +38,6 @@ func (h *AuthHandler) ConnectJira(c echo.Context) error {
 
 	// Get the Jira authorization URL from the auth service
 	authURL := h.authService.GenerateAuthURL(state)
-	log.Println(authURL)
 
 	// Return JSON response with authorization URL
 	response := map[string]interface{}{
@@ -61,8 +60,6 @@ func (h *AuthHandler) JiraCallback(c echo.Context) error {
 	if state == "" {
 		return buildErrorResponse(c, http.StatusBadRequest, "MISSING_STATE", "state parameter is required")
 	}
-
-	log.Println("code", code)
 
 	// Exchange the authorization code for OAuth tokens and user info
 	user, tokenInfo, err := h.authService.ExchangeJiraCode(c.Request().Context(), code, state)
@@ -153,26 +150,140 @@ func (h *AuthHandler) JiraCallback(c echo.Context) error {
 	return tmpl.Execute(c.Response().Writer, data)
 }
 
-// RefreshToken refreshes the Jira OAuth access token
-func (h *AuthHandler) RefreshToken(c echo.Context) error {
-	// Get user from JWT context (set by middleware)
-	userID := getUserIDFromContext(c)
-	if userID == "" {
-		return buildErrorResponse(c, http.StatusUnauthorized, "UNAUTHORIZED", "user not authenticated")
+// DummyJiraCallback returns a dummy OAuth callback response for frontend testing
+// This endpoint is only available in development environment
+func (h *AuthHandler) DummyJiraCallback(c echo.Context) error {
+	// Security check: only allow in development environment
+	if h.config.Env != "development" {
+		return buildErrorResponse(c, http.StatusForbidden, "NOT_AVAILABLE", "dummy endpoint only available in development")
 	}
 
-	// Refresh the token
-	newAccessToken, err := h.authService.RefreshJiraToken(c.Request().Context(), userID)
+	// Create hardcoded dummy OAuth token info
+	expiresAt := time.Now().Add(3600 * time.Second)
+	tokenInfo := &service.JiraTokenInfo{
+		AccessToken:  "dummy_access_token_for_testing",
+		RefreshToken: "dummy_refresh_token_for_testing",
+		ExpiresAt:    expiresAt,
+		ExpiresIn:    3600,
+		TokenType:    "Bearer",
+		Scope:        "read:jira-user read:jira-work",
+	}
+
+	// Create hardcoded dummy user data
+	user := &domain.User{
+		ID:        "dummy-user-123",
+		Name:      "Test User",
+		Email:     "test@example.com",
+		CloudID:   "dummy-cloud-456",
+		AvatarURL: "https://example.com/avatar.png",
+		CreatedAt: time.Now(),
+	}
+
+	// Build redirect URL with dummy data
+	redirectURL, err := buildRedirectURL(h.config.FrontendCallbackURL, tokenInfo, user)
+	if err != nil {
+		log.Printf("Failed to build redirect URL: %v", err)
+		// Fallback to JSON response if URL construction fails
+		response := map[string]interface{}{
+			"access_token":  tokenInfo.AccessToken,
+			"refresh_token": tokenInfo.RefreshToken,
+			"expires_at":    tokenInfo.ExpiresAt.Format(time.RFC3339),
+			"expires_in":    tokenInfo.ExpiresIn,
+			"token_type":    tokenInfo.TokenType,
+			"scope":         tokenInfo.Scope,
+			"user": map[string]interface{}{
+				"id":         user.ID,
+				"name":       user.Name,
+				"email":      user.Email,
+				"cloud_id":   user.CloudID,
+				"avatar_url": user.AvatarURL,
+			},
+		}
+		return c.JSON(http.StatusOK, response)
+	}
+
+	// Load the embedded HTML template
+	templateContent, err := callbackTemplate.ReadFile("callback_page.html")
+	if err != nil {
+		log.Printf("Failed to read embedded template: %v", err)
+		// Fallback to JSON response if template loading fails
+		response := map[string]interface{}{
+			"access_token":  tokenInfo.AccessToken,
+			"refresh_token": tokenInfo.RefreshToken,
+			"expires_at":    tokenInfo.ExpiresAt.Format(time.RFC3339),
+			"expires_in":    tokenInfo.ExpiresIn,
+			"token_type":    tokenInfo.TokenType,
+			"scope":         tokenInfo.Scope,
+			"user": map[string]interface{}{
+				"id":         user.ID,
+				"name":       user.Name,
+				"email":      user.Email,
+				"cloud_id":   user.CloudID,
+				"avatar_url": user.AvatarURL,
+			},
+		}
+		return c.JSON(http.StatusOK, response)
+	}
+
+	// Parse and execute the template
+	tmpl, err := template.New("callback").Parse(string(templateContent))
+	if err != nil {
+		log.Printf("Failed to parse template: %v", err)
+		// Fallback to JSON response if template parsing fails
+		response := map[string]interface{}{
+			"access_token":  tokenInfo.AccessToken,
+			"refresh_token": tokenInfo.RefreshToken,
+			"expires_at":    tokenInfo.ExpiresAt.Format(time.RFC3339),
+			"expires_in":    tokenInfo.ExpiresIn,
+			"token_type":    tokenInfo.TokenType,
+			"scope":         tokenInfo.Scope,
+			"user": map[string]interface{}{
+				"id":         user.ID,
+				"name":       user.Name,
+				"email":      user.Email,
+				"cloud_id":   user.CloudID,
+				"avatar_url": user.AvatarURL,
+			},
+		}
+		return c.JSON(http.StatusOK, response)
+	}
+
+	// Prepare template data
+	data := struct {
+		UserName    string
+		RedirectURL string
+	}{
+		UserName:    user.Name,
+		RedirectURL: redirectURL,
+	}
+
+	// Execute template and return HTML response
+	c.Response().Header().Set("Content-Type", "text/html; charset=utf-8")
+	return tmpl.Execute(c.Response().Writer, data)
+}
+
+// RefreshToken refreshes the Jira OAuth access token
+func (h *AuthHandler) RefreshToken(c echo.Context) error {
+	// Parse request body
+	var req struct {
+		RefreshToken string `json:"refreshToken"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return buildErrorResponse(c, http.StatusBadRequest, "INVALID_REQUEST", "invalid request body")
+	}
+
+	// Validate refresh token provided
+	if req.RefreshToken == "" {
+		return buildErrorResponse(c, http.StatusBadRequest, "MISSING_REFRESH_TOKEN", "refreshToken is required")
+	}
+
+	// Refresh the token using provided refresh token
+	tokenResp, err := h.authService.RefreshJiraToken(c.Request().Context(), req.RefreshToken)
 	if err != nil {
 		return buildErrorResponse(c, http.StatusUnauthorized, "TOKEN_REFRESH_FAILED", "failed to refresh token: "+err.Error())
 	}
 
-	// Build success response
-	response := map[string]interface{}{
-		"access_token": newAccessToken,
-	}
-
-	return c.JSON(http.StatusOK, response)
+	return c.JSON(http.StatusOK, tokenResp)
 }
 
 // ErrorResponse represents the error response format

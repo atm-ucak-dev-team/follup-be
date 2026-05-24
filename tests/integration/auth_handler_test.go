@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -27,7 +28,7 @@ func createTestConfig() *domain.Config {
 // Mock AuthService for testing
 type mockAuthService struct {
 	exchangeCodeFunc  func(ctx context.Context, code, state string) (*domain.User, *service.JiraTokenInfo, error)
-	refreshTokenFunc  func(ctx context.Context, userID string) (string, error)
+	refreshTokenFunc  func(ctx context.Context, userID string) (*domain.TokenResponse, error)
 	generateURLFunc   func(state string) string
 	validateTokenFunc func(token *domain.OAuthToken) bool
 }
@@ -51,12 +52,17 @@ func (m *mockAuthService) ExchangeJiraCode(ctx context.Context, code, state stri
 	}, tokenInfo, nil
 }
 
-func (m *mockAuthService) RefreshJiraToken(ctx context.Context, userID string) (string, error) {
+func (m *mockAuthService) RefreshJiraToken(ctx context.Context, userID string) (*domain.TokenResponse, error) {
 	if m.refreshTokenFunc != nil {
 		return m.refreshTokenFunc(ctx, userID)
 	}
 	// Default implementation
-	return "", nil // JWT disabled - returning empty token
+	return &domain.TokenResponse{
+		AccessToken:  "",
+		RefreshToken: "",
+		ExpiresAt:    "",
+		ExpiresIn:    0,
+	}, nil // JWT disabled - returning empty token
 }
 
 func (m *mockAuthService) GenerateAuthURL(state string) string {
@@ -272,14 +278,24 @@ func TestRefreshToken_Success(t *testing.T) {
 	// Setup
 	e := echo.New()
 	mockAuth := &mockAuthService{
-		refreshTokenFunc: func(ctx context.Context, userID string) (string, error) {
-			return "new-access-token-xyz", nil
+		refreshTokenFunc: func(ctx context.Context, userID string) (*domain.TokenResponse, error) {
+			return &domain.TokenResponse{
+				AccessToken:  "new-access-token-xyz",
+				RefreshToken: "new-refresh-token-xyz",
+				ExpiresAt:    "",
+				ExpiresIn:    3600,
+			}, nil
 		},
 	}
 	h := handler.NewAuthHandler(mockAuth, createTestConfig())
 
-	// Create request
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/jira/refresh", nil)
+	// Create request with JSON body
+	requestBody := map[string]string{
+		"refreshToken": "valid-refresh-token",
+	}
+	bodyBytes, _ := json.Marshal(requestBody)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/jira/refresh", bytes.NewReader(bodyBytes))
+	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
@@ -297,8 +313,8 @@ func TestRefreshToken_Success(t *testing.T) {
 	err = json.Unmarshal(rec.Body.Bytes(), &response)
 	require.NoError(t, err)
 
-	assert.Contains(t, response, "access_token")
-	assert.Equal(t, "new-access-token-xyz", response["access_token"])
+	assert.Contains(t, response, "accessToken")
+	assert.Equal(t, "new-access-token-xyz", response["accessToken"])
 }
 
 // TestRefreshToken_TokenExpired tests refresh with expired/invalid token
@@ -306,14 +322,19 @@ func TestRefreshToken_TokenExpired(t *testing.T) {
 	// Setup
 	e := echo.New()
 	mockAuth := &mockAuthService{
-		refreshTokenFunc: func(ctx context.Context, userID string) (string, error) {
-			return "", assert.AnError
+		refreshTokenFunc: func(ctx context.Context, userID string) (*domain.TokenResponse, error) {
+			return nil, assert.AnError
 		},
 	}
 	h := handler.NewAuthHandler(mockAuth, createTestConfig())
 
-	// Create request
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/jira/refresh", nil)
+	// Create request with JSON body
+	requestBody := map[string]string{
+		"refreshToken": "expired-token",
+	}
+	bodyBytes, _ := json.Marshal(requestBody)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/jira/refresh", bytes.NewReader(bodyBytes))
+	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
@@ -344,19 +365,17 @@ func TestRefreshToken_Unauthorized(t *testing.T) {
 	mockAuth := &mockAuthService{}
 	h := handler.NewAuthHandler(mockAuth, createTestConfig())
 
-	// Create request without user ID in context
+	// Create request without JSON body (missing refreshToken)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/jira/refresh", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-
-	// No user ID set in context (simulating missing JWT)
 
 	// Execute
 	err := h.RefreshToken(c)
 
 	// Assert
 	require.NoError(t, err)
-	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
 
 	var response map[string]interface{}
 	err = json.Unmarshal(rec.Body.Bytes(), &response)
@@ -364,8 +383,8 @@ func TestRefreshToken_Unauthorized(t *testing.T) {
 
 	assert.Contains(t, response, "error")
 	errResp := response["error"].(map[string]interface{})
-	assert.Equal(t, "UNAUTHORIZED", errResp["code"])
-	assert.Equal(t, "user not authenticated", errResp["message"])
+	assert.Equal(t, "MISSING_REFRESH_TOKEN", errResp["code"])
+	assert.Equal(t, "refreshToken is required", errResp["message"])
 }
 
 // TestHelper_GenerateState tests state generation uniqueness

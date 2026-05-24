@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"time"
@@ -91,7 +90,6 @@ func (s *AuthServiceImpl) ExchangeJiraCode(ctx context.Context, code, state stri
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to exchange code for token: %w", err)
 	}
-	log.Println("accessTOken", tokenResp.AccessToken)
 
 	// Step 1: Get accessible resources to find cloud ID
 	cloudID, err := s.getAccessibleResources(ctx, tokenResp.AccessToken)
@@ -138,35 +136,23 @@ func (s *AuthServiceImpl) ExchangeJiraCode(ctx context.Context, code, state stri
 }
 
 // RefreshJiraToken refreshes an expired access token and returns new access token
-func (s *AuthServiceImpl) RefreshJiraToken(ctx context.Context, userID string) (string, error) {
-	// Get existing OAuth token
-	oauthToken, err := s.oauthRepo.GetByUserIDAndProvider(ctx, userID, "jira")
-	if err != nil {
-		return "", fmt.Errorf("failed to get OAuth token: %w", err)
-	}
-
+func (s *AuthServiceImpl) RefreshJiraToken(ctx context.Context, refreshToken string) (*domain.TokenResponse, error) {
 	// Exchange refresh token for new access token
-	tokenResp, err := s.refreshToken(ctx, oauthToken.RefreshToken)
+	tokenResp, err := s.refreshToken(ctx, refreshToken)
 	if err != nil {
-		// Pause all user automations on refresh failure
-		if pauseErr := s.pauseUserAutomations(ctx, userID); pauseErr != nil {
-			return "", fmt.Errorf("failed to refresh token: %v, failed to pause automations: %w", err, pauseErr)
-		}
-		return "", fmt.Errorf("failed to refresh token: %w", err)
+		return nil, fmt.Errorf("failed to refresh token: %w", err)
 	}
 
-	// Update token in repository
-	oauthToken.AccessToken = tokenResp.AccessToken
-	oauthToken.ExpiresAt = time.Now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second)
-	if tokenResp.RefreshToken != "" {
-		oauthToken.RefreshToken = tokenResp.RefreshToken
-	}
+	// Calculate expiration time (ISO 8601 format)
+	expiresAt := time.Now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second)
 
-	if err := s.oauthRepo.Update(ctx, oauthToken); err != nil {
-		return "", fmt.Errorf("failed to update OAuth token: %w", err)
-	}
-
-	return oauthToken.AccessToken, nil
+	// Map Jira response to enhanced response format
+	return &domain.TokenResponse{
+		AccessToken:  tokenResp.AccessToken,
+		RefreshToken: tokenResp.RefreshToken,
+		ExpiresAt:    expiresAt.Format(time.RFC3339),
+		ExpiresIn:    tokenResp.ExpiresIn,
+	}, nil
 }
 
 // GenerateAuthURL creates the Jira OAuth authorization URL

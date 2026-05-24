@@ -10,3 +10,11 @@ type OAuthToken struct {
 	RefreshToken string    `json:"refresh_token"`
 	ExpiresAt    time.Time `json:"expires_at"`
 }
+
+// TokenResponse represents the enhanced token response from Jira refresh
+type TokenResponse struct {
+	AccessToken  string `json:"accessToken"`
+	RefreshToken string `json:"refreshToken"`
+	ExpiresAt    string `json:"expiresAt"`
+	ExpiresIn    int64  `json:"expiresIn"`
+}

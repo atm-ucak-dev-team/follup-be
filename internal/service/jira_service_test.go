@@ -45,10 +45,10 @@ func TestGetIssues_Success(t *testing.T) {
 	// Create mock server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Verify request
-		if r.Method != "POST" {
-			t.Errorf("Expected POST request, got %s", r.Method)
+		if r.Method != "GET" {
+			t.Errorf("Expected GET request, got %s", r.Method)
 		}
-		if r.Header.Get("Authorization") != "Bearer test-token" {
+		if r.Header.Get("Authorization") != "Bearer test-access-token" {
 			t.Errorf("Expected Authorization header, got %s", r.Header.Get("Authorization"))
 		}
 
@@ -81,15 +81,12 @@ func TestGetIssues_Success(t *testing.T) {
 		JiraAPIBaseURL: server.URL,
 	}
 
-	// Create mock repository
-	mockRepo := &MockOAuthTokenRepository{}
-
 	// Create service
-	jiraService := NewJiraService(mockRepo, config)
+	jiraService := NewJiraService(config)
 
 	// Test GetIssues
 	ctx := context.Background()
-	issues, err := jiraService.GetIssues(ctx, "user123", "TEST", "In Progress")
+	issues, err := jiraService.GetIssues(ctx, "test-cloud-id", "test-access-token", "status = 'In Progress'", "10")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
@@ -103,8 +100,8 @@ func TestGetIssues_Success(t *testing.T) {
 		t.Errorf("Expected issue key TEST-1, got %s", issues[0].Key)
 	}
 
-	if issues[0].Summary != "Test Issue" {
-		t.Errorf("Expected summary 'Test Issue', got %s", issues[0].Summary)
+	if issues[0].TicketTitle != "Test Issue" {
+		t.Errorf("Expected title 'Test Issue', got %s", issues[0].TicketTitle)
 	}
 
 	if issues[0].Status != "In Progress" {
@@ -135,11 +132,10 @@ func TestGetIssues_WithFilters(t *testing.T) {
 		JiraAPIBaseURL: server.URL,
 	}
 
-	mockRepo := &MockOAuthTokenRepository{}
-	jiraService := NewJiraService(mockRepo, config)
+	jiraService := NewJiraService(config)
 
 	ctx := context.Background()
-	_, _ = jiraService.GetIssues(ctx, "user123", "MYPROJECT", "Done")
+	_, _ = jiraService.GetIssues(ctx, "test-cloud-id", "test-access-token", "project = MYPROJECT AND status = Done", "10")
 
 	// Verify JQL query contains filters
 	if capturedJQL == "" {
@@ -158,28 +154,29 @@ func TestGetIssues_WithFilters(t *testing.T) {
 
 // TestGetIssues_TokenExpired tests handling of expired/invalid tokens
 func TestGetIssues_TokenExpired(t *testing.T) {
-	// Create mock repository that returns error
-	mockRepo := &MockOAuthTokenRepository{
-		getByUserIDAndProviderFunc: func(ctx context.Context, userID, provider string) (*domain.OAuthToken, error) {
-			return nil, &domain.ValidationError{Field: "token", Message: "not found"}
-		},
-	}
+	// Create mock server that returns 401 Unauthorized (token expired)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte(`{"error": "token expired"}`))
+	}))
+	defer server.Close()
 
 	config := &domain.Config{
-		JiraAPIBaseURL: "https://api.atlassian.com",
+		JiraAPIBaseURL: server.URL,
 	}
 
-	jiraService := NewJiraService(mockRepo, config)
+	jiraService := NewJiraService(config)
 
 	ctx := context.Background()
-	_, err := jiraService.GetIssues(ctx, "user123", "", "")
+	_, err := jiraService.GetIssues(ctx, "test-cloud-id", "test-access-token", "", "")
 
 	if err == nil {
-		t.Error("Expected error for missing token, got nil")
+		t.Error("Expected error for expired token, got nil")
 	}
 
-	if !contains(err.Error(), "failed to get OAuth token") {
-		t.Errorf("Expected token error, got %v", err)
+	// Check that error message contains information about the failed request (the error is "Jira API error: status 401")
+	if !contains(err.Error(), "Jira API error") {
+		t.Errorf("Expected error message to contain 'Jira API error', got %v", err)
 	}
 }
 
@@ -210,11 +207,10 @@ func TestGetIssue_Success(t *testing.T) {
 		JiraAPIBaseURL: server.URL,
 	}
 
-	mockRepo := &MockOAuthTokenRepository{}
-	jiraService := NewJiraService(mockRepo, config)
+	jiraService := NewJiraService(config)
 
 	ctx := context.Background()
-	issue, err := jiraService.GetIssue(ctx, "user123", "TEST-1")
+	issue, err := jiraService.GetIssue(ctx, "test-cloud-id", "test-access-token", "TEST-1")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
@@ -224,12 +220,12 @@ func TestGetIssue_Success(t *testing.T) {
 		t.Fatal("Expected issue, got nil")
 	}
 
-	if issue.Key != "TEST-1" {
-		t.Errorf("Expected issue key TEST-1, got %s", issue.Key)
+	if issue.TicketNumber != "TEST-1" {
+		t.Errorf("Expected ticket number TEST-1, got %s", issue.TicketNumber)
 	}
 
-	if issue.Summary != "Single Test Issue" {
-		t.Errorf("Expected summary 'Single Test Issue', got %s", issue.Summary)
+	if issue.TicketTitle != "Single Test Issue" {
+		t.Errorf("Expected title 'Single Test Issue', got %s", issue.TicketTitle)
 	}
 }
 
@@ -245,11 +241,10 @@ func TestGetIssue_NotFound(t *testing.T) {
 		JiraAPIBaseURL: server.URL,
 	}
 
-	mockRepo := &MockOAuthTokenRepository{}
-	jiraService := NewJiraService(mockRepo, config)
+	jiraService := NewJiraService(config)
 
 	ctx := context.Background()
-	_, err := jiraService.GetIssue(ctx, "user123", "NONEXISTENT-1")
+	_, err := jiraService.GetIssue(ctx, "test-cloud-id", "test-access-token", "NONEXISTENT-1")
 
 	if err == nil {
 		t.Error("Expected error for non-existent issue, got nil")
@@ -272,11 +267,10 @@ func TestGetIssues_APIError(t *testing.T) {
 		JiraAPIBaseURL: server.URL,
 	}
 
-	mockRepo := &MockOAuthTokenRepository{}
-	jiraService := NewJiraService(mockRepo, config)
+	jiraService := NewJiraService(config)
 
 	ctx := context.Background()
-	_, err := jiraService.GetIssues(ctx, "user123", "", "")
+	_, err := jiraService.GetIssues(ctx, "test-cloud-id", "test-access-token", "", "")
 
 	if err == nil {
 		t.Error("Expected error for invalid API request, got nil")
@@ -299,11 +293,10 @@ func TestGetIssue_APIErrorWithFieldErrors(t *testing.T) {
 		JiraAPIBaseURL: server.URL,
 	}
 
-	mockRepo := &MockOAuthTokenRepository{}
-	jiraService := NewJiraService(mockRepo, config)
+	jiraService := NewJiraService(config)
 
 	ctx := context.Background()
-	_, err := jiraService.GetIssue(ctx, "user123", "TEST-1")
+	_, err := jiraService.GetIssue(ctx, "test-cloud-id", "test-access-token", "TEST-1")
 
 	if err == nil {
 		t.Error("Expected error for invalid API request, got nil")

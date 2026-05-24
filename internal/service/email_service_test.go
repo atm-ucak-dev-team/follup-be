@@ -229,7 +229,6 @@ func TestSaveCredential_Success(t *testing.T) {
 
 	mockAutomationRepo := &MockAutomationRuleRepository{}
 	mockThreadRepo := &MockEmailThreadRepository{}
-	mockJiraService := &MockJiraService{}
 
 	config := &domain.Config{
 		AESSecretKey: "12345678901234567890123456789012", // 32 bytes
@@ -237,7 +236,7 @@ func TestSaveCredential_Success(t *testing.T) {
 		SMTPHost:     "smtp.example.com",
 	}
 
-	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, mockJiraService, config)
+	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, config)
 
 	ctx := context.Background()
 	err := service.SaveCredential(ctx, "user123", "test@example.com", "plaintext_password")
@@ -252,7 +251,6 @@ func TestSaveCredential_EncryptionFails(t *testing.T) {
 	mockEmailRepo := &MockEmailCredentialRepository{}
 	mockAutomationRepo := &MockAutomationRuleRepository{}
 	mockThreadRepo := &MockEmailThreadRepository{}
-	mockJiraService := &MockJiraService{}
 
 	config := &domain.Config{
 		AESSecretKey: "invalid_key", // Invalid key length
@@ -260,7 +258,7 @@ func TestSaveCredential_EncryptionFails(t *testing.T) {
 		SMTPHost:     "smtp.example.com",
 	}
 
-	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, mockJiraService, config)
+	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, config)
 
 	ctx := context.Background()
 	err := service.SaveCredential(ctx, "user123", "test@example.com", "password")
@@ -294,7 +292,6 @@ func TestSendFollowUp_Success(t *testing.T) {
 			return nil
 		},
 	}
-	mockJiraService := &MockJiraService{}
 
 	config := &domain.Config{
 		AESSecretKey: "12345678901234567890123456789012",
@@ -305,7 +302,7 @@ func TestSendFollowUp_Success(t *testing.T) {
 	// Mock successful email sending by using a mock implementation
 	// For this test, we'll just verify the logic flow
 
-	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, mockJiraService, config)
+	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, config)
 
 	ctx := context.Background()
 	err := service.SendFollowUpByAutomation(ctx, "automation123")
@@ -326,7 +323,6 @@ func TestSendFollowUp_CredentialNotFound(t *testing.T) {
 	}
 	mockAutomationRepo := &MockAutomationRuleRepository{}
 	mockThreadRepo := &MockEmailThreadRepository{}
-	mockJiraService := &MockJiraService{}
 
 	config := &domain.Config{
 		AESSecretKey: "12345678901234567890123456789012",
@@ -334,7 +330,7 @@ func TestSendFollowUp_CredentialNotFound(t *testing.T) {
 		SMTPHost:     "smtp.example.com",
 	}
 
-	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, mockJiraService, config)
+	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, config)
 
 	ctx := context.Background()
 	err := service.SendFollowUpByAutomation(ctx, "automation123")
@@ -364,7 +360,6 @@ func TestSendFollowUp_DecryptFails(t *testing.T) {
 	}
 	mockAutomationRepo := &MockAutomationRuleRepository{}
 	mockThreadRepo := &MockEmailThreadRepository{}
-	mockJiraService := &MockJiraService{}
 
 	config := &domain.Config{
 		AESSecretKey: "12345678901234567890123456789012",
@@ -372,7 +367,7 @@ func TestSendFollowUp_DecryptFails(t *testing.T) {
 		SMTPHost:     "smtp.example.com",
 	}
 
-	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, mockJiraService, config)
+	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, config)
 
 	ctx := context.Background()
 	err := service.SendFollowUpByAutomation(ctx, "automation123")
@@ -395,7 +390,6 @@ func TestPollInbox_Success_NoNewReplies(t *testing.T) {
 		},
 	}
 	mockThreadRepo := &MockEmailThreadRepository{}
-	mockJiraService := &MockJiraService{}
 
 	config := &domain.Config{
 		AESSecretKey: "12345678901234567890123456789012",
@@ -403,7 +397,7 @@ func TestPollInbox_Success_NoNewReplies(t *testing.T) {
 		SMTPHost:     "smtp.example.com",
 	}
 
-	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, mockJiraService, config)
+	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, config)
 
 	ctx := context.Background()
 	err := service.PollInbox(ctx)
@@ -429,7 +423,6 @@ func TestPollInbox_IMAPConnectionFailed(t *testing.T) {
 		},
 	}
 	mockThreadRepo := &MockEmailThreadRepository{}
-	mockJiraService := &MockJiraService{}
 
 	config := &domain.Config{
 		AESSecretKey: "12345678901234567890123456789012",
@@ -437,7 +430,7 @@ func TestPollInbox_IMAPConnectionFailed(t *testing.T) {
 		SMTPHost:     "smtp.example.com",
 	}
 
-	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, mockJiraService, config)
+	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, config)
 
 	ctx := context.Background()
 	err := service.PollInbox(ctx)
@@ -454,7 +447,6 @@ func TestDecryptPassword_Success(t *testing.T) {
 	mockEmailRepo := &MockEmailCredentialRepository{}
 	mockAutomationRepo := &MockAutomationRuleRepository{}
 	mockThreadRepo := &MockEmailThreadRepository{}
-	mockJiraService := &MockJiraService{}
 
 	config := &domain.Config{
 		AESSecretKey: "12345678901234567890123456789012",
@@ -462,7 +454,7 @@ func TestDecryptPassword_Success(t *testing.T) {
 		SMTPHost:     "smtp.example.com",
 	}
 
-	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, mockJiraService, config)
+	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, config)
 
 	// Test that the method exists and handles invalid input
 	_, err := service.(*EmailServiceImpl).DecryptPassword("invalid_encrypted_data")
@@ -502,7 +494,6 @@ func TestPollInbox_ThreadMatchFound(t *testing.T) {
 			return nil
 		},
 	}
-	mockJiraService := &MockJiraService{}
 
 	config := &domain.Config{
 		AESSecretKey: "12345678901234567890123456789012",
@@ -510,7 +501,7 @@ func TestPollInbox_ThreadMatchFound(t *testing.T) {
 		SMTPHost:     "smtp.example.com",
 	}
 
-	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, mockJiraService, config)
+	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, config)
 
 	ctx := context.Background()
 	err := service.PollInbox(ctx)
@@ -527,7 +518,6 @@ func TestSendFollowUp_AutomationNotFound(t *testing.T) {
 		},
 	}
 	mockThreadRepo := &MockEmailThreadRepository{}
-	mockJiraService := &MockJiraService{}
 
 	config := &domain.Config{
 		AESSecretKey: "12345678901234567890123456789012",
@@ -535,7 +525,7 @@ func TestSendFollowUp_AutomationNotFound(t *testing.T) {
 		SMTPHost:     "smtp.example.com",
 	}
 
-	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, mockJiraService, config)
+	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, config)
 
 	ctx := context.Background()
 	err := service.SendFollowUpByAutomation(ctx, "nonexistent_automation")
@@ -558,7 +548,6 @@ func TestRegisterCredential(t *testing.T) {
 	}
 	mockAutomationRepo := &MockAutomationRuleRepository{}
 	mockThreadRepo := &MockEmailThreadRepository{}
-	mockJiraService := &MockJiraService{}
 
 	config := &domain.Config{
 		AESSecretKey: "12345678901234567890123456789012",
@@ -566,7 +555,7 @@ func TestRegisterCredential(t *testing.T) {
 		SMTPHost:     "smtp.example.com",
 	}
 
-	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, mockJiraService, config)
+	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, config)
 
 	ctx := context.Background()
 	cred := &domain.EmailCredential{
@@ -589,7 +578,6 @@ func TestGetCredential(t *testing.T) {
 	mockEmailRepo := &MockEmailCredentialRepository{}
 	mockAutomationRepo := &MockAutomationRuleRepository{}
 	mockThreadRepo := &MockEmailThreadRepository{}
-	mockJiraService := &MockJiraService{}
 
 	config := &domain.Config{
 		AESSecretKey: "12345678901234567890123456789012",
@@ -597,7 +585,7 @@ func TestGetCredential(t *testing.T) {
 		SMTPHost:     "smtp.example.com",
 	}
 
-	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, mockJiraService, config)
+	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, config)
 
 	ctx := context.Background()
 	cred, err := service.GetCredential(ctx, "user123")
@@ -614,7 +602,6 @@ func TestCheckForReplies(t *testing.T) {
 	mockEmailRepo := &MockEmailCredentialRepository{}
 	mockAutomationRepo := &MockAutomationRuleRepository{}
 	mockThreadRepo := &MockEmailThreadRepository{}
-	mockJiraService := &MockJiraService{}
 
 	config := &domain.Config{
 		AESSecretKey: "12345678901234567890123456789012",
@@ -622,7 +609,7 @@ func TestCheckForReplies(t *testing.T) {
 		SMTPHost:     "smtp.example.com",
 	}
 
-	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, mockJiraService, config)
+	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, config)
 
 	ctx := context.Background()
 	err := service.CheckForReplies(ctx)
@@ -649,7 +636,6 @@ func TestMatchMessageToThread(t *testing.T) {
 			return nil, errors.New("not found")
 		},
 	}
-	mockJiraService := &MockJiraService{}
 
 	config := &domain.Config{
 		AESSecretKey: "12345678901234567890123456789012",
@@ -657,7 +643,7 @@ func TestMatchMessageToThread(t *testing.T) {
 		SMTPHost:     "smtp.example.com",
 	}
 
-	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, mockJiraService, config)
+	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, config)
 
 	ctx := context.Background()
 
@@ -697,7 +683,6 @@ func TestMatchMessageToThread_References(t *testing.T) {
 			return nil, errors.New("not found")
 		},
 	}
-	mockJiraService := &MockJiraService{}
 
 	config := &domain.Config{
 		AESSecretKey: "12345678901234567890123456789012",
@@ -705,7 +690,7 @@ func TestMatchMessageToThread_References(t *testing.T) {
 		SMTPHost:     "smtp.example.com",
 	}
 
-	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, mockJiraService, config)
+	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, config)
 
 	ctx := context.Background()
 
@@ -736,7 +721,6 @@ func TestMatchMessageToThread_MessageID(t *testing.T) {
 			return nil, errors.New("not found")
 		},
 	}
-	mockJiraService := &MockJiraService{}
 
 	config := &domain.Config{
 		AESSecretKey: "12345678901234567890123456789012",
@@ -744,7 +728,7 @@ func TestMatchMessageToThread_MessageID(t *testing.T) {
 		SMTPHost:     "smtp.example.com",
 	}
 
-	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, mockJiraService, config)
+	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, config)
 
 	ctx := context.Background()
 
@@ -773,7 +757,6 @@ func TestMatchMessageToThread_DifferentUser(t *testing.T) {
 			}, nil
 		},
 	}
-	mockJiraService := &MockJiraService{}
 
 	config := &domain.Config{
 		AESSecretKey: "12345678901234567890123456789012",
@@ -781,7 +764,7 @@ func TestMatchMessageToThread_DifferentUser(t *testing.T) {
 		SMTPHost:     "smtp.example.com",
 	}
 
-	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, mockJiraService, config)
+	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, config)
 
 	ctx := context.Background()
 
@@ -800,7 +783,6 @@ func TestComposeEmailBody(t *testing.T) {
 	mockEmailRepo := &MockEmailCredentialRepository{}
 	mockAutomationRepo := &MockAutomationRuleRepository{}
 	mockThreadRepo := &MockEmailThreadRepository{}
-	mockJiraService := &MockJiraService{}
 
 	config := &domain.Config{
 		AESSecretKey: "12345678901234567890123456789012",
@@ -808,34 +790,21 @@ func TestComposeEmailBody(t *testing.T) {
 		SMTPHost:     "smtp.example.com",
 	}
 
-	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, mockJiraService, config)
-
-	jiraIssue := domain.JiraIssue{
-		ID:           "12345",
-		Key:          "PROJ-123",
-		Summary:      "Test Issue Summary",
-		Status:       "In Progress",
-		Stakeholders: []string{"user1@example.com", "user2@example.com"},
-	}
+	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, config)
 
 	automation := &domain.AutomationRule{
 		JiraTicketKey: "PROJ-123",
 	}
 
-	body := service.(*EmailServiceImpl).composeEmailBody(jiraIssue, automation)
+	body := service.(*EmailServiceImpl).composeEmailBodyForAutomation(automation)
 
-	// Verify body contains expected content
+	// Verify body contains expected content (current implementation only includes ticket key)
 	if !contains(body, "PROJ-123") {
 		t.Error("Expected body to contain ticket key")
 	}
-	if !contains(body, "Test Issue Summary") {
-		t.Error("Expected body to contain issue summary")
-	}
-	if !contains(body, "In Progress") {
-		t.Error("Expected body to contain issue status")
-	}
-	if !contains(body, "user1@example.com") {
-		t.Error("Expected body to contain stakeholders")
+	// The current implementation creates a generic body without detailed issue information
+	if !contains(body, "follow-up regarding the Jira ticket") {
+		t.Error("Expected body to contain follow-up message")
 	}
 }
 
@@ -844,7 +813,6 @@ func TestDecryptPassword_InvalidKey(t *testing.T) {
 	mockEmailRepo := &MockEmailCredentialRepository{}
 	mockAutomationRepo := &MockAutomationRuleRepository{}
 	mockThreadRepo := &MockEmailThreadRepository{}
-	mockJiraService := &MockJiraService{}
 
 	config := &domain.Config{
 		AESSecretKey: "invalid_key", // Invalid length
@@ -852,7 +820,7 @@ func TestDecryptPassword_InvalidKey(t *testing.T) {
 		SMTPHost:     "smtp.example.com",
 	}
 
-	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, mockJiraService, config)
+	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, config)
 
 	_, err := service.(*EmailServiceImpl).DecryptPassword("some_encrypted_data")
 	if err == nil {
@@ -876,11 +844,6 @@ func TestSendFollowUp_JiraIssueNotFound(t *testing.T) {
 	}
 	mockAutomationRepo := &MockAutomationRuleRepository{}
 	mockThreadRepo := &MockEmailThreadRepository{}
-	mockJiraService := &MockJiraService{
-		getIssueFunc: func(ctx context.Context, userID, ticketKey string) (*domain.JiraIssue, error) {
-			return nil, errors.New("jira issue not found")
-		},
-	}
 
 	config := &domain.Config{
 		AESSecretKey: "12345678901234567890123456789012",
@@ -888,7 +851,7 @@ func TestSendFollowUp_JiraIssueNotFound(t *testing.T) {
 		SMTPHost:     "smtp.example.com",
 	}
 
-	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, mockJiraService, config)
+	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, config)
 
 	ctx := context.Background()
 	err := service.SendFollowUpByAutomation(ctx, "automation123")
@@ -920,7 +883,6 @@ func TestSendFollowUp_ThreadCreationFailed(t *testing.T) {
 	}
 	mockAutomationRepo := &MockAutomationRuleRepository{}
 	mockThreadRepo := &MockEmailThreadRepository{}
-	mockJiraService := &MockJiraService{}
 
 	config := &domain.Config{
 		AESSecretKey: "12345678901234567890123456789012",
@@ -928,7 +890,7 @@ func TestSendFollowUp_ThreadCreationFailed(t *testing.T) {
 		SMTPHost:     "smtp.example.com",
 	}
 
-	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, mockJiraService, config)
+	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, config)
 
 	ctx := context.Background()
 	err := service.SendFollowUpByAutomation(ctx, "automation123")
@@ -964,7 +926,6 @@ func TestRegisterCredential_UpdateExisting(t *testing.T) {
 	}
 	mockAutomationRepo := &MockAutomationRuleRepository{}
 	mockThreadRepo := &MockEmailThreadRepository{}
-	mockJiraService := &MockJiraService{}
 
 	config := &domain.Config{
 		AESSecretKey: "12345678901234567890123456789012",
@@ -972,7 +933,7 @@ func TestRegisterCredential_UpdateExisting(t *testing.T) {
 		SMTPHost:     "smtp.example.com",
 	}
 
-	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, mockJiraService, config)
+	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, config)
 
 	ctx := context.Background()
 	newCred := &domain.EmailCredential{
@@ -995,7 +956,6 @@ func TestRegisterCredential_MissingEmail(t *testing.T) {
 	mockEmailRepo := &MockEmailCredentialRepository{}
 	mockAutomationRepo := &MockAutomationRuleRepository{}
 	mockThreadRepo := &MockEmailThreadRepository{}
-	mockJiraService := &MockJiraService{}
 
 	config := &domain.Config{
 		AESSecretKey: "12345678901234567890123456789012",
@@ -1003,7 +963,7 @@ func TestRegisterCredential_MissingEmail(t *testing.T) {
 		SMTPHost:     "smtp.example.com",
 	}
 
-	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, mockJiraService, config)
+	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, config)
 
 	ctx := context.Background()
 	cred := &domain.EmailCredential{
@@ -1030,7 +990,6 @@ func TestSendFollowUp_Legacy(t *testing.T) {
 	mockEmailRepo := &MockEmailCredentialRepository{}
 	mockAutomationRepo := &MockAutomationRuleRepository{}
 	mockThreadRepo := &MockEmailThreadRepository{}
-	mockJiraService := &MockJiraService{}
 
 	config := &domain.Config{
 		AESSecretKey: "12345678901234567890123456789012",
@@ -1038,7 +997,7 @@ func TestSendFollowUp_Legacy(t *testing.T) {
 		SMTPHost:     "smtp.example.com",
 	}
 
-	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, mockJiraService, config)
+	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, config)
 
 	ctx := context.Background()
 	err := service.SendFollowUp(ctx, "thread123", "Subject", "Body", []string{"test@example.com"})

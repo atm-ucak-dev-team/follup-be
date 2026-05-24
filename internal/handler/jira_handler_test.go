@@ -17,8 +17,8 @@ import (
 
 // Mock JiraService for testing
 type mockJiraService struct {
-	getIssuesFunc func(ctx context.Context, userID, project, status string) ([]domain.JiraIssue, error)
-	getIssueFunc  func(ctx context.Context, userID, ticketKey string) (*domain.JiraIssue, error)
+	getIssuesFunc func(ctx context.Context, cloudID, accessToken, search, limit string) ([]domain.JiraIssueResponse, error)
+	getIssueFunc  func(ctx context.Context, cloudID, accessToken, issueID string) (*domain.JiraIssueDetailResponse, error)
 }
 
 func (m *mockJiraService) GetTicket(ctx interface{}, ticketID string) (*domain.JiraTicket, error) {
@@ -37,48 +37,51 @@ func (m *mockJiraService) GetAuthenticatedUser(ctx interface{}) (*domain.User, e
 	return nil, nil
 }
 
-func (m *mockJiraService) GetIssues(ctx context.Context, userID, project, status string) ([]domain.JiraIssue, error) {
+func (m *mockJiraService) GetIssues(ctx context.Context, cloudID, accessToken, search, limit string) ([]domain.JiraIssueResponse, error) {
 	if m.getIssuesFunc != nil {
-		return m.getIssuesFunc(ctx, userID, project, status)
+		return m.getIssuesFunc(ctx, cloudID, accessToken, search, limit)
 	}
 	// Default implementation
-	return []domain.JiraIssue{
+	return []domain.JiraIssueResponse{
 		{
-			ID:      "10001",
-			Key:     "PROJ-123",
-			Summary: "Test Issue 1",
-			Status:  "In Progress",
-			Stakeholders: []string{
-				"alice@example.com",
-				"bob@example.com",
-			},
+			ID:          "10001",
+			Key:         "PROJ-123",
+			URL:         "https://api.atlassian.com/ex/jira/test-cloud/rest/api/2/issue/10001",
+			TicketTitle: "Test Issue 1",
+			Stakeholder: "alice@example.com",
+			Status:      "In Progress",
+			StatusColor: "blue",
 		},
 		{
-			ID:      "10002",
-			Key:     "PROJ-456",
-			Summary: "Test Issue 2",
-			Status:  "Done",
-			Stakeholders: []string{
-				"charlie@example.com",
-			},
+			ID:          "10002",
+			Key:         "PROJ-456",
+			URL:         "https://api.atlassian.com/ex/jira/test-cloud/rest/api/2/issue/10002",
+			TicketTitle: "Test Issue 2",
+			Stakeholder: "charlie@example.com",
+			Status:      "Done",
+			StatusColor: "green",
 		},
 	}, nil
 }
 
-func (m *mockJiraService) GetIssue(ctx context.Context, userID, ticketKey string) (*domain.JiraIssue, error) {
+func (m *mockJiraService) GetIssue(ctx context.Context, cloudID, accessToken, issueID string) (*domain.JiraIssueDetailResponse, error) {
 	if m.getIssueFunc != nil {
-		return m.getIssueFunc(ctx, userID, ticketKey)
+		return m.getIssueFunc(ctx, cloudID, accessToken, issueID)
 	}
 	// Default implementation
-	return &domain.JiraIssue{
-		ID:      "10001",
-		Key:     "PROJ-123",
-		Summary: "Test Issue",
-		Status:  "In Progress",
-		Stakeholders: []string{
-			"alice@example.com",
-			"bob@example.com",
-		},
+	return &domain.JiraIssueDetailResponse{
+		ID:            "10001",
+		TicketNumber:  "PROJ-123",
+		SelfLink:      "https://api.atlassian.com/ex/jira/test-cloud/rest/api/2/issue/10001",
+		TicketTitle:   "Test Issue",
+		Stakeholder:   "alice@example.com",
+		Status:        "In Progress",
+		StatusColor:   "blue",
+		LastViewed:    "2026-05-20T11:38:10.480+0700",
+		CreatorName:   "Test Creator",
+		CreatorEmail:  "creator@example.com",
+		AssigneeName:  "Test Assignee",
+		AssigneeEmail: "assignee@example.com",
 	}, nil
 }
 
@@ -87,14 +90,16 @@ func TestGetIssues_Success(t *testing.T) {
 	// Setup
 	e := echo.New()
 	mockJira := &mockJiraService{
-		getIssuesFunc: func(ctx context.Context, userID, project, status string) ([]domain.JiraIssue, error) {
-			return []domain.JiraIssue{
+		getIssuesFunc: func(ctx context.Context, cloudID, accessToken, search, limit string) ([]domain.JiraIssueResponse, error) {
+			return []domain.JiraIssueResponse{
 				{
-					ID:           "10001",
-					Key:          "PROJ-123",
-					Summary:      "Test Issue",
-					Status:       "In Progress",
-					Stakeholders: []string{"alice@example.com"},
+					ID:          "10001",
+					Key:         "PROJ-123",
+					URL:         "https://api.atlassian.com/ex/jira/test-cloud/rest/api/2/issue/10001",
+					TicketTitle: "Test Issue",
+					Stakeholder: "alice@example.com",
+					Status:      "In Progress",
+					StatusColor: "blue",
 				},
 			}, nil
 		},
@@ -102,9 +107,10 @@ func TestGetIssues_Success(t *testing.T) {
 	h := NewJiraHandler(mockJira)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/jira/issues", nil)
+	req.Header.Set("X-User-Cloud-ID", "test-cloud-123")
+	req.Header.Set("X-Jira-Access-Token", "test-token-123")
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.Set("user_id", "test-user-123")
 
 	// Execute
 	err := h.GetIssues(c)
@@ -113,13 +119,11 @@ func TestGetIssues_Success(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, rec.Code)
 
-	var response map[string]interface{}
+	var response []interface{}
 	err = json.Unmarshal(rec.Body.Bytes(), &response)
 	require.NoError(t, err)
 
-	assert.Contains(t, response, "issues")
-	issues := response["issues"].([]interface{})
-	assert.Len(t, issues, 1)
+	assert.Len(t, response, 1)
 }
 
 // TestGetIssues_WithProjectFilter tests issues retrieval with project filter
@@ -127,15 +131,16 @@ func TestGetIssues_WithProjectFilter(t *testing.T) {
 	// Setup
 	e := echo.New()
 	mockJira := &mockJiraService{
-		getIssuesFunc: func(ctx context.Context, userID, project, status string) ([]domain.JiraIssue, error) {
-			assert.Equal(t, "PROJ", project)
-			return []domain.JiraIssue{
+		getIssuesFunc: func(ctx context.Context, cloudID, accessToken, search, limit string) ([]domain.JiraIssueResponse, error) {
+			return []domain.JiraIssueResponse{
 				{
-					ID:           "10001",
-					Key:          "PROJ-123",
-					Summary:      "Project Issue",
-					Status:       "Open",
-					Stakeholders: []string{"alice@example.com"},
+					ID:          "10001",
+					Key:         "PROJ-123",
+					URL:         "https://api.atlassian.com/ex/jira/test-cloud/rest/api/2/issue/10001",
+					TicketTitle: "Project Issue",
+					Stakeholder: "alice@example.com",
+					Status:      "Open",
+					StatusColor: "blue",
 				},
 			}, nil
 		},
@@ -147,9 +152,10 @@ func TestGetIssues_WithProjectFilter(t *testing.T) {
 	params.Add("project", "PROJ")
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/jira/issues?"+params.Encode(), nil)
+	req.Header.Set("X-User-Cloud-ID", "test-cloud-123")
+	req.Header.Set("X-Jira-Access-Token", "test-token-123")
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.Set("user_id", "test-user-123")
 
 	// Execute
 	err := h.GetIssues(c)
@@ -158,16 +164,14 @@ func TestGetIssues_WithProjectFilter(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, rec.Code)
 
-	var response map[string]interface{}
+	var response []interface{}
 	err = json.Unmarshal(rec.Body.Bytes(), &response)
 	require.NoError(t, err)
 
-	assert.Contains(t, response, "issues")
-	issues := response["issues"].([]interface{})
-	assert.Len(t, issues, 1)
+	assert.Len(t, response, 1)
 
-	issue := issues[0].(map[string]interface{})
-	assert.Equal(t, "Project Issue", issue["summary"])
+	issue := response[0].(map[string]interface{})
+	assert.Equal(t, "Project Issue", issue["ticketTitle"])
 }
 
 // TestGetIssues_WithStatusFilter tests issues retrieval with status filter
@@ -175,15 +179,16 @@ func TestGetIssues_WithStatusFilter(t *testing.T) {
 	// Setup
 	e := echo.New()
 	mockJira := &mockJiraService{
-		getIssuesFunc: func(ctx context.Context, userID, project, status string) ([]domain.JiraIssue, error) {
-			assert.Equal(t, "In Progress", status)
-			return []domain.JiraIssue{
+		getIssuesFunc: func(ctx context.Context, cloudID, accessToken, search, limit string) ([]domain.JiraIssueResponse, error) {
+			return []domain.JiraIssueResponse{
 				{
-					ID:           "10001",
-					Key:          "PROJ-123",
-					Summary:      "In Progress Issue",
-					Status:       "In Progress",
-					Stakeholders: []string{"alice@example.com"},
+					ID:          "10001",
+					Key:         "PROJ-123",
+					URL:         "https://api.atlassian.com/ex/jira/test-cloud/rest/api/2/issue/10001",
+					TicketTitle: "In Progress Issue",
+					Stakeholder: "alice@example.com",
+					Status:      "In Progress",
+					StatusColor: "blue",
 				},
 			}, nil
 		},
@@ -195,9 +200,10 @@ func TestGetIssues_WithStatusFilter(t *testing.T) {
 	params.Add("status", "In Progress")
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/jira/issues?"+params.Encode(), nil)
+	req.Header.Set("X-User-Cloud-ID", "test-cloud-123")
+	req.Header.Set("X-Jira-Access-Token", "test-token-123")
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.Set("user_id", "test-user-123")
 
 	// Execute
 	err := h.GetIssues(c)
@@ -206,16 +212,14 @@ func TestGetIssues_WithStatusFilter(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, rec.Code)
 
-	var response map[string]interface{}
+	var response []interface{}
 	err = json.Unmarshal(rec.Body.Bytes(), &response)
 	require.NoError(t, err)
 
-	assert.Contains(t, response, "issues")
-	issues := response["issues"].([]interface{})
-	assert.Len(t, issues, 1)
+	assert.Len(t, response, 1)
 
-	issue := issues[0].(map[string]interface{})
-	assert.Equal(t, "In Progress Issue", issue["summary"])
+	issue := response[0].(map[string]interface{})
+	assert.Equal(t, "In Progress Issue", issue["ticketTitle"])
 	assert.Equal(t, "In Progress", issue["status"])
 }
 
@@ -224,16 +228,17 @@ func TestGetIssues_TokenExpired(t *testing.T) {
 	// Setup
 	e := echo.New()
 	mockJira := &mockJiraService{
-		getIssuesFunc: func(ctx context.Context, userID, project, status string) ([]domain.JiraIssue, error) {
+		getIssuesFunc: func(ctx context.Context, cloudID, accessToken, search, limit string) ([]domain.JiraIssueResponse, error) {
 			return nil, ErrTokenExpired
 		},
 	}
 	h := NewJiraHandler(mockJira)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/jira/issues", nil)
+	req.Header.Set("X-User-Cloud-ID", "test-cloud-123")
+	req.Header.Set("X-Jira-Access-Token", "test-token-123")
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.Set("user_id", "test-user-123")
 
 	// Execute
 	err := h.GetIssues(c)
@@ -262,7 +267,7 @@ func TestGetIssues_Unauthorized(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/jira/issues", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	// No user_id set in context
+	// No X-User-Cloud-ID header set
 
 	// Execute
 	err := h.GetIssues(c)
@@ -277,8 +282,8 @@ func TestGetIssues_Unauthorized(t *testing.T) {
 
 	assert.Contains(t, response, "error")
 	errResp := response["error"].(map[string]interface{})
-	assert.Equal(t, "UNAUTHORIZED", errResp["code"])
-	assert.Equal(t, "user not authenticated", errResp["message"])
+	assert.Equal(t, "MISSING_CLOUD_ID", errResp["code"])
+	assert.Equal(t, "X-User-Cloud-ID header is required", errResp["message"])
 }
 
 // TestGetIssues_JiraAPIError tests issues retrieval with Jira API error
@@ -286,16 +291,17 @@ func TestGetIssues_JiraAPIError(t *testing.T) {
 	// Setup
 	e := echo.New()
 	mockJira := &mockJiraService{
-		getIssuesFunc: func(ctx context.Context, userID, project, status string) ([]domain.JiraIssue, error) {
+		getIssuesFunc: func(ctx context.Context, cloudID, accessToken, search, limit string) ([]domain.JiraIssueResponse, error) {
 			return nil, errors.New("Jira API connection failed")
 		},
 	}
 	h := NewJiraHandler(mockJira)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/jira/issues", nil)
+	req.Header.Set("X-User-Cloud-ID", "test-cloud-123")
+	req.Header.Set("X-Jira-Access-Token", "test-token-123")
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.Set("user_id", "test-user-123")
 
 	// Execute
 	err := h.GetIssues(c)
@@ -319,25 +325,35 @@ func TestGetIssue_Success(t *testing.T) {
 	// Setup
 	e := echo.New()
 	mockJira := &mockJiraService{
-		getIssueFunc: func(ctx context.Context, userID, ticketKey string) (*domain.JiraIssue, error) {
-			assert.Equal(t, "PROJ-123", ticketKey)
-			return &domain.JiraIssue{
-				ID:           "10001",
-				Key:          "PROJ-123",
-				Summary:      "Test Issue",
-				Status:       "In Progress",
-				Stakeholders: []string{"alice@example.com", "bob@example.com"},
+		getIssueFunc: func(ctx context.Context, cloudID, accessToken, issueID string) (*domain.JiraIssueDetailResponse, error) {
+			assert.Equal(t, "test-cloud-123", cloudID)
+			assert.Equal(t, "test-token-123", accessToken)
+			assert.Equal(t, "PROJ-123", issueID)
+			return &domain.JiraIssueDetailResponse{
+				ID:            "10001",
+				TicketNumber:  "PROJ-123",
+				SelfLink:      "https://api.atlassian.com/ex/jira/test-cloud/rest/api/2/issue/10001",
+				TicketTitle:   "Test Issue",
+				Stakeholder:   "alice@example.com",
+				Status:        "In Progress",
+				StatusColor:   "blue",
+				LastViewed:    "2026-05-20T11:38:10.480+0700",
+				CreatorName:   "Test Creator",
+				CreatorEmail:  "creator@example.com",
+				AssigneeName:  "Test Assignee",
+				AssigneeEmail: "assignee@example.com",
 			}, nil
 		},
 	}
 	h := NewJiraHandler(mockJira)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/jira/issues/PROJ-123", nil)
+	req.Header.Set("X-User-Cloud-ID", "test-cloud-123")
+	req.Header.Set("X-Jira-Access-Token", "test-token-123")
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 	c.SetParamNames("ticket_key")
 	c.SetParamValues("PROJ-123")
-	c.Set("user_id", "test-user-123")
 
 	// Execute
 	err := h.GetIssue(c)
@@ -346,15 +362,15 @@ func TestGetIssue_Success(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, rec.Code)
 
-	var response domain.JiraIssue
+	var response domain.JiraIssueDetailResponse
 	err = json.Unmarshal(rec.Body.Bytes(), &response)
 	require.NoError(t, err)
 
 	assert.Equal(t, "10001", response.ID)
-	assert.Equal(t, "PROJ-123", response.Key)
-	assert.Equal(t, "Test Issue", response.Summary)
+	assert.Equal(t, "PROJ-123", response.TicketNumber)
+	assert.Equal(t, "Test Issue", response.TicketTitle)
 	assert.Equal(t, "In Progress", response.Status)
-	assert.Len(t, response.Stakeholders, 2)
+	assert.Equal(t, "alice@example.com", response.Stakeholder)
 }
 
 // TestGetIssue_NotFound tests retrieval of non-existent issue
@@ -362,18 +378,19 @@ func TestGetIssue_NotFound(t *testing.T) {
 	// Setup
 	e := echo.New()
 	mockJira := &mockJiraService{
-		getIssueFunc: func(ctx context.Context, userID, ticketKey string) (*domain.JiraIssue, error) {
+		getIssueFunc: func(ctx context.Context, cloudID, accessToken, issueID string) (*domain.JiraIssueDetailResponse, error) {
 			return nil, ErrIssueNotFound
 		},
 	}
 	h := NewJiraHandler(mockJira)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/jira/issues/NONEXIST-123", nil)
+	req.Header.Set("X-User-Cloud-ID", "test-cloud-123")
+	req.Header.Set("X-Jira-Access-Token", "test-token-123")
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 	c.SetParamNames("ticket_key")
 	c.SetParamValues("NONEXIST-123")
-	c.Set("user_id", "test-user-123")
 
 	// Execute
 	err := h.GetIssue(c)
@@ -400,10 +417,11 @@ func TestGetIssue_MissingTicketKey(t *testing.T) {
 	h := NewJiraHandler(mockJira)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/jira/issues/", nil)
+	req.Header.Set("X-User-Cloud-ID", "test-cloud-123")
+	req.Header.Set("X-Jira-Access-Token", "test-token-123")
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 	// No ticket_key parameter set
-	c.Set("user_id", "test-user-123")
 
 	// Execute
 	err := h.GetIssue(c)
@@ -418,7 +436,7 @@ func TestGetIssue_MissingTicketKey(t *testing.T) {
 
 	assert.Contains(t, response, "error")
 	errResp := response["error"].(map[string]interface{})
-	assert.Equal(t, "MISSING_TICKET_KEY", errResp["code"])
+	assert.Equal(t, "MISSING_ISSUE_ID", errResp["code"])
 	assert.Equal(t, "ticket_key parameter is required", errResp["message"])
 }
 
@@ -449,8 +467,8 @@ func TestGetIssue_Unauthorized(t *testing.T) {
 
 	assert.Contains(t, response, "error")
 	errResp := response["error"].(map[string]interface{})
-	assert.Equal(t, "UNAUTHORIZED", errResp["code"])
-	assert.Equal(t, "user not authenticated", errResp["message"])
+	assert.Equal(t, "MISSING_CLOUD_ID", errResp["code"])
+	assert.Equal(t, "X-User-Cloud-ID header is required", errResp["message"])
 }
 
 // TestGetIssue_JiraAPIError tests issue retrieval with Jira API error
@@ -458,18 +476,19 @@ func TestGetIssue_JiraAPIError(t *testing.T) {
 	// Setup
 	e := echo.New()
 	mockJira := &mockJiraService{
-		getIssueFunc: func(ctx context.Context, userID, ticketKey string) (*domain.JiraIssue, error) {
+		getIssueFunc: func(ctx context.Context, cloudID, accessToken, issueID string) (*domain.JiraIssueDetailResponse, error) {
 			return nil, errors.New("Jira API connection failed")
 		},
 	}
 	h := NewJiraHandler(mockJira)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/jira/issues/PROJ-123", nil)
+	req.Header.Set("X-User-Cloud-ID", "test-cloud-123")
+	req.Header.Set("X-Jira-Access-Token", "test-token-123")
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 	c.SetParamNames("ticket_key")
 	c.SetParamValues("PROJ-123")
-	c.Set("user_id", "test-user-123")
 
 	// Execute
 	err := h.GetIssue(c)
@@ -493,18 +512,19 @@ func TestGetIssue_TokenExpired(t *testing.T) {
 	// Setup
 	e := echo.New()
 	mockJira := &mockJiraService{
-		getIssueFunc: func(ctx context.Context, userID, ticketKey string) (*domain.JiraIssue, error) {
+		getIssueFunc: func(ctx context.Context, cloudID, accessToken, issueID string) (*domain.JiraIssueDetailResponse, error) {
 			return nil, ErrTokenExpired
 		},
 	}
 	h := NewJiraHandler(mockJira)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/jira/issues/PROJ-123", nil)
+	req.Header.Set("X-User-Cloud-ID", "test-cloud-123")
+	req.Header.Set("X-Jira-Access-Token", "test-token-123")
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 	c.SetParamNames("ticket_key")
 	c.SetParamValues("PROJ-123")
-	c.Set("user_id", "test-user-123")
 
 	// Execute
 	err := h.GetIssue(c)

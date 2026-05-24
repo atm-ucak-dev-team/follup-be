@@ -122,8 +122,8 @@ func main() {
 
 	// 4. Init services (inject repos)
 	authService := service.NewAuthService(userRepo, oauthTokenRepo, automationRepo, cfg)
-	jiraService := service.NewJiraService(oauthTokenRepo, cfg)
-	emailService := service.NewEmailService(emailCredentialRepo, automationRepo, emailThreadRepo, jiraService, cfg)
+	jiraService := service.NewJiraService(cfg)
+	emailService := service.NewEmailService(emailCredentialRepo, automationRepo, emailThreadRepo, cfg)
 	automationService := service.NewAutomationService(automationRepo, emailService)
 
 	log.Println("Initialized services")
@@ -169,6 +169,8 @@ func main() {
 	e.GET("/auth/jira/connect", authHandler.ConnectJira)
 	e.GET("/auth/jira/callback", authHandler.JiraCallback)
 	e.POST("/auth/jira/refresh", authHandler.RefreshToken)
+	// Dummy callback endpoint for frontend testing (development only)
+	e.GET("/auth/jira/dummy-callback", authHandler.DummyJiraCallback)
 
 	// Protected routes (JWT DISABLED - using X-User-Dummy-Id header instead)
 	api := e.Group("/api/v1")

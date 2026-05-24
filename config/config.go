@@ -62,7 +62,7 @@ func setDefaults() {
 	viper.SetDefault("SMTP_PORT", 587)
 
 	// Frontend callback URL defaults
-	viper.SetDefault("FRONTEND_CALLBACK_URL", "http://example.com/jira-callback")
+	viper.SetDefault("FRONTEND_CALLBACK_URL", "follupapp://callback")
 
 	// IMAP Polling defaults
 	viper.SetDefault("IMAP_POLL_INTERVAL_SECONDS", 300)

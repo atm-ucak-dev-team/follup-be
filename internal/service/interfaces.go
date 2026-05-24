@@ -12,7 +12,7 @@ type AuthService interface {
 	ExchangeJiraCode(ctx context.Context, code, state string) (*domain.User, *JiraTokenInfo, error)
 
 	// RefreshJiraToken refreshes an expired access token and returns new access token
-	RefreshJiraToken(ctx context.Context, userID string) (string, error)
+	RefreshJiraToken(ctx context.Context, refreshToken string) (*domain.TokenResponse, error)
 
 	// GenerateAuthURL creates the Jira OAuth authorization URL
 	GenerateAuthURL(state string) string
@@ -92,9 +92,9 @@ type JiraService interface {
 	// GetAuthenticatedUser retrieves the authenticated Jira user
 	GetAuthenticatedUser(ctx interface{}) (*domain.User, error)
 
-	// GetIssues retrieves Jira issues for a user with optional project and status filters
-	GetIssues(ctx context.Context, userID, project, status string) ([]domain.JiraIssue, error)
+	// GetIssues retrieves Jira issues using Atlassian Cloud API JQL search
+	GetIssues(ctx context.Context, cloudID, accessToken, search, limit string) ([]domain.JiraIssueResponse, error)
 
-	// GetIssue retrieves a single Jira issue by ticket key
-	GetIssue(ctx context.Context, userID, ticketKey string) (*domain.JiraIssue, error)
+	// GetIssue retrieves a single Jira issue by issue ID using Atlassian Cloud API
+	GetIssue(ctx context.Context, cloudID, accessToken, issueID string) (*domain.JiraIssueDetailResponse, error)
 }

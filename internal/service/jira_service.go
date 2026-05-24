@@ -4,29 +4,26 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"time"
 
 	"github.com/atm-ucak/follup/internal/domain"
-	"github.com/atm-ucak/follup/internal/repository"
 )
 
 // JiraServiceImpl implements the JiraService interface
 type JiraServiceImpl struct {
-	oauthRepo  repository.OAuthTokenRepository
 	config     *domain.Config
 	httpClient *http.Client
 }
 
 // NewJiraService creates a new JiraService instance
 func NewJiraService(
-	oauthRepo repository.OAuthTokenRepository,
 	config *domain.Config,
 ) JiraService {
 	return &JiraServiceImpl{
-		oauthRepo: oauthRepo,
-		config:    config,
+		config: config,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
@@ -41,6 +38,34 @@ type jiraSearchResponse struct {
 	Issues     []jiraIssueItem `json:"issues"`
 }
 
+// JQL search API response structures
+type jiraJQLSearchResponse struct {
+	Issues []jiraJQLIssueItem `json:"issues"`
+	IsLast bool               `json:"isLast"`
+}
+
+type jiraJQLIssueItem struct {
+	ID     string             `json:"id"`
+	Self   string             `json:"self"`
+	Key    string             `json:"key"`
+	Fields jiraJQLIssueFields `json:"fields"`
+}
+
+type jiraJQLIssueFields struct {
+	Summary          string        `json:"summary"`
+	Customfield10072 string        `json:"customfield_10072"`
+	Status           jiraJQLStatus `json:"status"`
+}
+
+type jiraJQLStatus struct {
+	Name           string                `json:"name"`
+	StatusCategory jiraJQLStatusCategory `json:"statusCategory"`
+}
+
+type jiraJQLStatusCategory struct {
+	ColorName string `json:"colorName"`
+}
+
 type jiraIssueItem struct {
 	ID     string `json:"id"`
 	Key    string `json:"key"`
@@ -51,6 +76,37 @@ type jiraIssueItem struct {
 		} `json:"status"`
 		// Custom field for stakeholders - will be extracted dynamically
 	} `json:"fields"`
+}
+
+// Detailed Jira issue response structures
+type jiraIssueDetailResponse struct {
+	ID     string                `json:"id"`
+	Self   string                `json:"self"`
+	Key    string                `json:"key"`
+	Fields jiraIssueDetailFields `json:"fields"`
+}
+
+type jiraIssueDetailFields struct {
+	Summary          string           `json:"summary"`
+	Customfield10072 string           `json:"customfield_10072"`
+	LastViewed       string           `json:"lastViewed"`
+	Status           jiraDetailStatus `json:"status"`
+	Creator          jiraDetailUser   `json:"creator"`
+	Assignee         *jiraDetailUser  `json:"assignee"` // Pointer to handle null
+}
+
+type jiraDetailStatus struct {
+	Name           string                   `json:"name"`
+	StatusCategory jiraDetailStatusCategory `json:"statusCategory"`
+}
+
+type jiraDetailStatusCategory struct {
+	ColorName string `json:"colorName"`
+}
+
+type jiraDetailUser struct {
+	DisplayName  string `json:"displayName"`
+	EmailAddress string `json:"emailAddress"`
 }
 
 type jiraIssueResponse struct {
@@ -70,28 +126,41 @@ type jiraErrorResponse struct {
 	Errors        map[string]string `json:"errors"`
 }
 
-// GetIssues retrieves Jira issues for a user with optional project and status filters
-func (s *JiraServiceImpl) GetIssues(ctx context.Context, userID, project, status string) ([]domain.JiraIssue, error) {
-	// Get OAuth token for user
-	token, err := s.getValidToken(ctx, userID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get OAuth token: %w", err)
+// GetIssues retrieves Jira issues using Atlassian Cloud API JQL search
+func (s *JiraServiceImpl) GetIssues(ctx context.Context, cloudID, accessToken, search, limit string) ([]domain.JiraIssueResponse, error) {
+	// Build JQL query
+	jql := "assignee = currentUser()"
+	if search != "" {
+		jql += fmt.Sprintf(` and (key = "%s" or summary ~ "%s")`, search, search)
 	}
 
-	// Build JQL query
-	jql := s.buildJQLQuery(project, status)
+	// Set default limit if not provided
+	maxResults := "10" // default
+	if limit != "" {
+		maxResults = limit
+	}
 
-	// Make API request
-	searchURL := fmt.Sprintf("%s/rest/api/3/search", s.config.JiraAPIBaseURL)
-	req, err := s.createJiraRequest(ctx, "POST", searchURL, token)
+	// Build API request URL for JQL search endpoint
+	searchURL := fmt.Sprintf("%s/ex/jira/%s/rest/api/2/search/jql", s.config.JiraAPIBaseURL, cloudID)
+
+	// Create request with query parameters
+	req, err := http.NewRequestWithContext(ctx, "GET", searchURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	// Add JQL query parameters
+	// Set headers
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+
+	// Add query parameters
 	params := url.Values{}
 	params.Add("jql", jql)
+	params.Add("maxResults", maxResults)
+	params.Add("fields", "summary,status,customfield_10072")
 	req.URL.RawQuery = params.Encode()
+
+	log.Println(req.URL.String())
 
 	// Execute request
 	resp, err := s.httpClient.Do(req)
@@ -106,40 +175,48 @@ func (s *JiraServiceImpl) GetIssues(ctx context.Context, userID, project, status
 	}
 
 	// Parse response
-	var searchResp jiraSearchResponse
-	if err := json.NewDecoder(resp.Body).Decode(&searchResp); err != nil {
+	var jqlResp jiraJQLSearchResponse
+	if err := json.NewDecoder(resp.Body).Decode(&jqlResp); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
 	// Convert to domain entities
-	issues := make([]domain.JiraIssue, len(searchResp.Issues))
-	for i, item := range searchResp.Issues {
-		issues[i] = domain.JiraIssue{
-			ID:           item.ID,
-			Key:          item.Key,
-			Summary:      item.Fields.Summary,
-			Status:       item.Fields.Status.Name,
-			Stakeholders: []string{}, // Will be populated when custom field is known
+	issues := make([]domain.JiraIssueResponse, len(jqlResp.Issues))
+	for i, item := range jqlResp.Issues {
+		// Handle stakeholder field (might be null/empty)
+		stakeholder := item.Fields.Customfield10072
+		if stakeholder == "" {
+			stakeholder = "Unassigned"
+		}
+
+		issues[i] = domain.JiraIssueResponse{
+			ID:          item.ID,
+			Key:         item.Key,
+			URL:         item.Self,
+			TicketTitle: item.Fields.Summary,
+			Stakeholder: stakeholder,
+			Status:      item.Fields.Status.Name,
+			StatusColor: item.Fields.Status.StatusCategory.ColorName,
 		}
 	}
 
 	return issues, nil
 }
 
-// GetIssue retrieves a single Jira issue by ticket key
-func (s *JiraServiceImpl) GetIssue(ctx context.Context, userID, ticketKey string) (*domain.JiraIssue, error) {
-	// Get OAuth token for user
-	token, err := s.getValidToken(ctx, userID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get OAuth token: %w", err)
-	}
+// GetIssue retrieves a single Jira issue by issue ID using Atlassian Cloud API
+func (s *JiraServiceImpl) GetIssue(ctx context.Context, cloudID, accessToken, issueID string) (*domain.JiraIssueDetailResponse, error) {
+	// Build API request URL for issue detail endpoint
+	issueURL := fmt.Sprintf("%s/ex/jira/%s/rest/api/2/issue/%s", s.config.JiraAPIBaseURL, cloudID, issueID)
 
-	// Make API request
-	issueURL := fmt.Sprintf("%s/rest/api/3/issue/%s", s.config.JiraAPIBaseURL, ticketKey)
-	req, err := s.createJiraRequest(ctx, "GET", issueURL, token)
+	// Create request
+	req, err := http.NewRequestWithContext(ctx, "GET", issueURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
+
+	// Set headers
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
 
 	// Execute request
 	resp, err := s.httpClient.Do(req)
@@ -150,7 +227,7 @@ func (s *JiraServiceImpl) GetIssue(ctx context.Context, userID, ticketKey string
 
 	// Handle not found
 	if resp.StatusCode == http.StatusNotFound {
-		return nil, fmt.Errorf("issue not found: %s", ticketKey)
+		return nil, fmt.Errorf("issue not found: %s", issueID)
 	}
 
 	// Handle other errors
@@ -158,19 +235,42 @@ func (s *JiraServiceImpl) GetIssue(ctx context.Context, userID, ticketKey string
 		return nil, s.handleJiraError(resp)
 	}
 
-	// Parse response
-	var issueResp jiraIssueResponse
+	// Parse response using detailed structure
+	var issueResp jiraIssueDetailResponse
 	if err := json.NewDecoder(resp.Body).Decode(&issueResp); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	// Convert to domain entity
-	issue := &domain.JiraIssue{
-		ID:           issueResp.ID,
-		Key:          issueResp.Key,
-		Summary:      issueResp.Fields.Summary,
-		Status:       issueResp.Fields.Status.Name,
-		Stakeholders: []string{}, // Will be populated when custom field is known
+	// Handle stakeholder field (customfield_10072)
+	stakeholder := issueResp.Fields.Customfield10072
+	if stakeholder == "" {
+		stakeholder = "Unassigned"
+	}
+
+	// Handle assignee fields (can be null)
+	var assigneeName, assigneeEmail string
+	if issueResp.Fields.Assignee != nil {
+		assigneeName = issueResp.Fields.Assignee.DisplayName
+		assigneeEmail = issueResp.Fields.Assignee.EmailAddress
+	} else {
+		assigneeName = "Unassigned"
+		assigneeEmail = ""
+	}
+
+	// Map to domain entity
+	issue := &domain.JiraIssueDetailResponse{
+		ID:            issueResp.ID,
+		TicketNumber:  issueResp.Key,
+		SelfLink:      issueResp.Self,
+		TicketTitle:   issueResp.Fields.Summary,
+		Stakeholder:   stakeholder,
+		Status:        issueResp.Fields.Status.Name,
+		StatusColor:   issueResp.Fields.Status.StatusCategory.ColorName,
+		LastViewed:    issueResp.Fields.LastViewed,
+		CreatorName:   issueResp.Fields.Creator.DisplayName,
+		CreatorEmail:  issueResp.Fields.Creator.EmailAddress,
+		AssigneeName:  assigneeName,
+		AssigneeEmail: assigneeEmail,
 	}
 
 	return issue, nil
@@ -201,45 +301,6 @@ func (s *JiraServiceImpl) GetAuthenticatedUser(ctx interface{}) (*domain.User, e
 // Helper methods
 
 // getValidToken gets a valid OAuth token for the user, refreshing if necessary
-func (s *JiraServiceImpl) getValidToken(ctx context.Context, userID string) (string, error) {
-	token, err := s.oauthRepo.GetByUserIDAndProvider(ctx, userID, "jira")
-	if err != nil {
-		return "", fmt.Errorf("failed to get OAuth token: %w", err)
-	}
-
-	// Check if token needs refresh (will be implemented with AuthService)
-	// For now, just return the access token
-	return token.AccessToken, nil
-}
-
-// buildJQLQuery constructs a JQL query based on filters
-func (s *JiraServiceImpl) buildJQLQuery(project, status string) string {
-	jql := "assignee = currentUser()"
-
-	if project != "" {
-		jql += fmt.Sprintf(" AND project = \"%s\"", project)
-	}
-
-	if status != "" {
-		jql += fmt.Sprintf(" AND status = \"%s\"", status)
-	}
-
-	return jql
-}
-
-// createJiraRequest creates an authenticated HTTP request to Jira API
-func (s *JiraServiceImpl) createJiraRequest(ctx context.Context, method, url, token string) (*http.Request, error) {
-	req, err := http.NewRequestWithContext(ctx, method, url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Accept", "application/json")
-
-	return req, nil
-}
-
 // handleJiraError processes error responses from Jira API
 func (s *JiraServiceImpl) handleJiraError(resp *http.Response) error {
 	var errResp jiraErrorResponse
