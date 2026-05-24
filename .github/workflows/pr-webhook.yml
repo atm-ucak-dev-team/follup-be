@@ -1,0 +1,104 @@
+name: Telegram PR Notification
+
+on:
+  pull_request:
+    types:
+      - opened
+      - closed
+
+permissions:
+  pull-requests: write
+  issues: write
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Send Telegram Message on PR Opened
+        if: github.event.action == 'opened'
+        id: telegram_opened
+        run: |
+          MESSAGE="🚀 PR OPENED
+
+          Repository: ${{ github.repository }}
+          Title: ${{ github.event.pull_request.title }}
+          Author: ${{ github.event.pull_request.user.login }}
+          Commits: ${{ github.event.pull_request.commits }}
+
+          URL:
+          ${{ github.event.pull_request.html_url }}"
+
+          RESPONSE=$(curl -s -X POST \
+            https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_SECRET_KEY }}/sendMessage \
+            -d chat_id=${{ secrets.TELEGRAM_BOT_CHANNEL_ID }} \
+            -d text="$MESSAGE")
+
+          echo "$RESPONSE"
+
+          MESSAGE_ID=$(echo "$RESPONSE" | jq '.result.message_id')
+
+          echo "message_id=$MESSAGE_ID" >> $GITHUB_OUTPUT
+
+      - name: Save Telegram Message ID to PR Comment
+        if: github.event.action == 'opened'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const messageId = "${{ steps.telegram_opened.outputs.message_id }}";
+            const channelUrl = "https://t.me/+xuDtvCItbQU4OTU1";
+      
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: `## 📣 PR Notification Sent
+
+              - 📢 Channel: [Open Channel](${channelUrl})
+              
+              <!-- TELEGRAM_MESSAGE_ID:${messageId} -->`
+            });
+      - name: Get Telegram Message ID
+        if: github.event.action == 'closed' && github.event.pull_request.merged == true
+        id: get_message
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number
+            });
+
+            const hiddenComment = comments.data.find(comment =>
+              comment.body.includes('TELEGRAM_MESSAGE_ID:')
+            );
+
+            if (!hiddenComment) {
+              core.setFailed("Telegram message ID not found");
+              return;
+            }
+
+            const match = hiddenComment.body.match(/TELEGRAM_MESSAGE_ID:(\d+)/);
+
+            core.setOutput("message_id", match[1]);
+
+      - name: Edit Telegram Message on Merge
+        if: github.event.action == 'closed' && github.event.pull_request.merged == true
+        run: |
+          MESSAGE="✅ PR MERGED
+
+          Repository: ${{ github.repository }}
+          Title: ${{ github.event.pull_request.title }}
+          Author: ${{ github.event.pull_request.user.login }}
+          Merged By: ${{ github.event.pull_request.merged_by.login }}
+          Commits: ${{ github.event.pull_request.commits }}
+
+          URL:
+          ${{ github.event.pull_request.html_url }}"
+
+          curl -s -X POST \
+            https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_SECRET_KEY }}/editMessageText \
+            -d chat_id=${{ secrets.TELEGRAM_BOT_CHANNEL_ID }} \
+            -d message_id=${{ steps.get_message.outputs.message_id }} \
+            -d text="$MESSAGE"
