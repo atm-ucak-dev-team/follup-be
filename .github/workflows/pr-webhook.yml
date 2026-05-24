@@ -46,14 +46,18 @@ jobs:
         with:
           script: |
             const messageId = "${{ steps.telegram_opened.outputs.message_id }}";
-
+            const channelUrl = "https://t.me/+xuDtvCItbQU4OTU1";
+      
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.payload.pull_request.number,
-              body: `<!-- TELEGRAM_MESSAGE_ID:${messageId} -->`
-            });
+              body: `## 📣 PR Notification Sent
 
+              - 📢 Channel: [Open Channel](${channelUrl})
+              
+              <!-- TELEGRAM_MESSAGE_ID:${messageId} -->`
+            });
       - name: Get Telegram Message ID
         if: github.event.action == 'closed' && github.event.pull_request.merged == true
         id: get_message
