@@ -78,36 +78,40 @@ func TestEmailCredentialJSONSerialization(t *testing.T) {
 	}
 }
 
-func TestAutomationRuleJSONSerialization(t *testing.T) {
+func TestFollowupJSONSerialization(t *testing.T) {
 	now := time.Now()
-	rule := AutomationRule{
-		ID:            "automation-123",
-		UserID:        "user-123",
-		JiraTicketID:  "ticket-123",
-		JiraTicketKey: "PROJ-123",
-		Recipients:    []string{"recipient1@example.com", "recipient2@example.com"},
-		CronSchedule:  "0 9 * * 1",
-		Status:        AutomationStatusActive,
-		LastRunAt:     &now,
-		CreatedAt:     time.Now(),
+	cc := "cc@example.com"
+	rule := Followup{
+		ID:                   "automation-123",
+		UserID:               "user-123",
+		JiraTicketID:         "ticket-123",
+		JiraTicketKey:        "PROJ-123",
+		To:                   "to@example.com",
+		Cc:                   &cc,
+		Subject:              "Follow-up: PROJ-123",
+		EmailBody:            "Please review this ticket.",
+		Frequency:            "0 9 * * 1",
+		Status:               FollowupStatusOngoing,
+		LastRunAt:            &now,
+		CreatedAt:            time.Now(),
 	}
 
 	data, err := json.Marshal(rule)
 	if err != nil {
-		t.Fatalf("Failed to marshal AutomationRule: %v", err)
+		t.Fatalf("Failed to marshal Followup: %v", err)
 	}
 
-	var unmarshaled AutomationRule
+	var unmarshaled Followup
 	if err := json.Unmarshal(data, &unmarshaled); err != nil {
-		t.Fatalf("Failed to unmarshal AutomationRule: %v", err)
+		t.Fatalf("Failed to unmarshal Followup: %v", err)
 	}
 
 	if unmarshaled.ID != rule.ID {
 		t.Errorf("Expected ID %s, got %s", rule.ID, unmarshaled.ID)
 	}
 
-	if unmarshaled.Status != AutomationStatusActive {
-		t.Errorf("Expected status %s, got %s", AutomationStatusActive, unmarshaled.Status)
+	if unmarshaled.Status != FollowupStatusOngoing {
+		t.Errorf("Expected status %s, got %s", FollowupStatusOngoing, unmarshaled.Status)
 	}
 }
 

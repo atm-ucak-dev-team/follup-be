@@ -53,60 +53,62 @@ func (m *MockEmailCredentialRepository) Delete(ctx context.Context, userID strin
 	return nil
 }
 
-type MockAutomationRuleRepository struct {
-	createFunc         func(ctx context.Context, rule *domain.AutomationRule) error
-	getByIDFunc        func(ctx context.Context, id string) (*domain.AutomationRule, error)
-	getByUserIDFunc    func(ctx context.Context, userID string) ([]*domain.AutomationRule, error)
-	getActiveRulesFunc func(ctx context.Context) ([]*domain.AutomationRule, error)
-	updateFunc         func(ctx context.Context, rule *domain.AutomationRule) error
+type MockFollowupRepository struct {
+	createFunc         func(ctx context.Context, rule *domain.Followup) error
+	getByIDFunc        func(ctx context.Context, id string) (*domain.Followup, error)
+	getByUserIDFunc    func(ctx context.Context, userID string) ([]*domain.Followup, error)
+	getActiveRulesFunc func(ctx context.Context) ([]*domain.Followup, error)
+	updateFunc         func(ctx context.Context, rule *domain.Followup) error
 	deleteFunc         func(ctx context.Context, id string) error
 }
 
-func (m *MockAutomationRuleRepository) Create(ctx context.Context, rule *domain.AutomationRule) error {
+func (m *MockFollowupRepository) Create(ctx context.Context, rule *domain.Followup) error {
 	if m.createFunc != nil {
 		return m.createFunc(ctx, rule)
 	}
 	return nil
 }
 
-func (m *MockAutomationRuleRepository) GetByID(ctx context.Context, id string) (*domain.AutomationRule, error) {
+func (m *MockFollowupRepository) GetByID(ctx context.Context, id string) (*domain.Followup, error) {
 	if m.getByIDFunc != nil {
 		return m.getByIDFunc(ctx, id)
 	}
-	return &domain.AutomationRule{
+	return &domain.Followup{
 		ID:            id,
 		UserID:        "user123",
 		JiraTicketID:  "ticket123",
 		JiraTicketKey: "PROJ-123",
-		Recipients:    []string{"recipient@example.com"},
-		CronSchedule:  "0 9 * * 1",
-		Status:        domain.AutomationStatusActive,
-		CreatedAt:     time.Now(),
+		To:        "recipient@example.com",
+		Subject:   "Test Subject",
+		EmailBody: "Test body",
+		Frequency: "0 9 * * 1",
+		Status:    domain.FollowupStatusOngoing,
+		CreatedAt: time.Now(),
 	}, nil
 }
 
-func (m *MockAutomationRuleRepository) GetByUserID(ctx context.Context, userID string) ([]*domain.AutomationRule, error) {
+func (m *MockFollowupRepository) GetByUserID(ctx context.Context, userID string) ([]*domain.Followup, error) {
 	if m.getByUserIDFunc != nil {
 		return m.getByUserIDFunc(ctx, userID)
 	}
-	return []*domain.AutomationRule{}, nil
+	return []*domain.Followup{}, nil
 }
 
-func (m *MockAutomationRuleRepository) GetActiveRules(ctx context.Context) ([]*domain.AutomationRule, error) {
+func (m *MockFollowupRepository) GetActiveRules(ctx context.Context) ([]*domain.Followup, error) {
 	if m.getActiveRulesFunc != nil {
 		return m.getActiveRulesFunc(ctx)
 	}
-	return []*domain.AutomationRule{}, nil
+	return []*domain.Followup{}, nil
 }
 
-func (m *MockAutomationRuleRepository) Update(ctx context.Context, rule *domain.AutomationRule) error {
+func (m *MockFollowupRepository) Update(ctx context.Context, rule *domain.Followup) error {
 	if m.updateFunc != nil {
 		return m.updateFunc(ctx, rule)
 	}
 	return nil
 }
 
-func (m *MockAutomationRuleRepository) Delete(ctx context.Context, id string) error {
+func (m *MockFollowupRepository) Delete(ctx context.Context, id string) error {
 	if m.deleteFunc != nil {
 		return m.deleteFunc(ctx, id)
 	}
@@ -227,7 +229,7 @@ func TestSaveCredential_Success(t *testing.T) {
 		},
 	}
 
-	mockAutomationRepo := &MockAutomationRuleRepository{}
+	mockAutomationRepo := &MockFollowupRepository{}
 	mockThreadRepo := &MockEmailThreadRepository{}
 
 	config := &domain.Config{
@@ -249,7 +251,7 @@ func TestSaveCredential_Success(t *testing.T) {
 // TestSaveCredential_EncryptionFails tests encryption failure handling
 func TestSaveCredential_EncryptionFails(t *testing.T) {
 	mockEmailRepo := &MockEmailCredentialRepository{}
-	mockAutomationRepo := &MockAutomationRuleRepository{}
+	mockAutomationRepo := &MockFollowupRepository{}
 	mockThreadRepo := &MockEmailThreadRepository{}
 
 	config := &domain.Config{
@@ -275,8 +277,8 @@ func TestSaveCredential_EncryptionFails(t *testing.T) {
 // TestSendFollowUp_Success tests successful follow-up email sending
 func TestSendFollowUp_Success(t *testing.T) {
 	mockEmailRepo := &MockEmailCredentialRepository{}
-	mockAutomationRepo := &MockAutomationRuleRepository{
-		updateFunc: func(ctx context.Context, rule *domain.AutomationRule) error {
+	mockAutomationRepo := &MockFollowupRepository{
+		updateFunc: func(ctx context.Context, rule *domain.Followup) error {
 			// Verify last run time was updated
 			if rule.LastRunAt == nil {
 				t.Error("Expected LastRunAt to be updated")
@@ -321,7 +323,7 @@ func TestSendFollowUp_CredentialNotFound(t *testing.T) {
 			return nil, errors.New("credential not found")
 		},
 	}
-	mockAutomationRepo := &MockAutomationRuleRepository{}
+	mockAutomationRepo := &MockFollowupRepository{}
 	mockThreadRepo := &MockEmailThreadRepository{}
 
 	config := &domain.Config{
@@ -358,7 +360,7 @@ func TestSendFollowUp_DecryptFails(t *testing.T) {
 			}, nil
 		},
 	}
-	mockAutomationRepo := &MockAutomationRuleRepository{}
+	mockAutomationRepo := &MockFollowupRepository{}
 	mockThreadRepo := &MockEmailThreadRepository{}
 
 	config := &domain.Config{
@@ -384,9 +386,9 @@ func TestSendFollowUp_DecryptFails(t *testing.T) {
 // TestPollInbox_Success_NoNewReplies tests successful polling with no new replies
 func TestPollInbox_Success_NoNewReplies(t *testing.T) {
 	mockEmailRepo := &MockEmailCredentialRepository{}
-	mockAutomationRepo := &MockAutomationRuleRepository{
-		getActiveRulesFunc: func(ctx context.Context) ([]*domain.AutomationRule, error) {
-			return []*domain.AutomationRule{}, nil
+	mockAutomationRepo := &MockFollowupRepository{
+		getActiveRulesFunc: func(ctx context.Context) ([]*domain.Followup, error) {
+			return []*domain.Followup{}, nil
 		},
 	}
 	mockThreadRepo := &MockEmailThreadRepository{}
@@ -410,14 +412,14 @@ func TestPollInbox_Success_NoNewReplies(t *testing.T) {
 // TestPollInbox_IMAPConnectionFailed tests handling of IMAP connection failure
 func TestPollInbox_IMAPConnectionFailed(t *testing.T) {
 	mockEmailRepo := &MockEmailCredentialRepository{}
-	mockAutomationRepo := &MockAutomationRuleRepository{
-		getActiveRulesFunc: func(ctx context.Context) ([]*domain.AutomationRule, error) {
-			return []*domain.AutomationRule{
+	mockAutomationRepo := &MockFollowupRepository{
+		getActiveRulesFunc: func(ctx context.Context) ([]*domain.Followup, error) {
+			return []*domain.Followup{
 				{
 					ID:            "automation123",
 					UserID:        "user123",
 					JiraTicketKey: "PROJ-123",
-					Status:        domain.AutomationStatusActive,
+					Status:        domain.FollowupStatusOngoing,
 				},
 			}, nil
 		},
@@ -445,7 +447,7 @@ func TestPollInbox_IMAPConnectionFailed(t *testing.T) {
 // TestDecryptPassword_Success tests successful password decryption
 func TestDecryptPassword_Success(t *testing.T) {
 	mockEmailRepo := &MockEmailCredentialRepository{}
-	mockAutomationRepo := &MockAutomationRuleRepository{}
+	mockAutomationRepo := &MockFollowupRepository{}
 	mockThreadRepo := &MockEmailThreadRepository{}
 
 	config := &domain.Config{
@@ -466,14 +468,14 @@ func TestDecryptPassword_Success(t *testing.T) {
 // TestPollInbox_ThreadMatchFound tests successful thread matching
 func TestPollInbox_ThreadMatchFound(t *testing.T) {
 	mockEmailRepo := &MockEmailCredentialRepository{}
-	mockAutomationRepo := &MockAutomationRuleRepository{
-		getActiveRulesFunc: func(ctx context.Context) ([]*domain.AutomationRule, error) {
-			return []*domain.AutomationRule{
+	mockAutomationRepo := &MockFollowupRepository{
+		getActiveRulesFunc: func(ctx context.Context) ([]*domain.Followup, error) {
+			return []*domain.Followup{
 				{
 					ID:            "automation123",
 					UserID:        "user123",
 					JiraTicketKey: "PROJ-123",
-					Status:        domain.AutomationStatusActive,
+					Status:        domain.FollowupStatusOngoing,
 				},
 			}, nil
 		},
@@ -512,8 +514,8 @@ func TestPollInbox_ThreadMatchFound(t *testing.T) {
 // TestSendFollowUp_AutomationNotFound tests handling of missing automation
 func TestSendFollowUp_AutomationNotFound(t *testing.T) {
 	mockEmailRepo := &MockEmailCredentialRepository{}
-	mockAutomationRepo := &MockAutomationRuleRepository{
-		getByIDFunc: func(ctx context.Context, id string) (*domain.AutomationRule, error) {
+	mockAutomationRepo := &MockFollowupRepository{
+		getByIDFunc: func(ctx context.Context, id string) (*domain.Followup, error) {
 			return nil, errors.New("automation not found")
 		},
 	}
@@ -534,7 +536,7 @@ func TestSendFollowUp_AutomationNotFound(t *testing.T) {
 		t.Error("Expected automation not found error, got nil")
 	}
 
-	if !contains(err.Error(), "failed to get automation rule") {
+	if !contains(err.Error(), "failed to get followup rule") {
 		t.Errorf("Expected automation not found error, got %v", err)
 	}
 }
@@ -546,7 +548,7 @@ func TestRegisterCredential(t *testing.T) {
 			return nil
 		},
 	}
-	mockAutomationRepo := &MockAutomationRuleRepository{}
+	mockAutomationRepo := &MockFollowupRepository{}
 	mockThreadRepo := &MockEmailThreadRepository{}
 
 	config := &domain.Config{
@@ -576,7 +578,7 @@ func TestRegisterCredential(t *testing.T) {
 // TestGetCredential tests the GetCredential method
 func TestGetCredential(t *testing.T) {
 	mockEmailRepo := &MockEmailCredentialRepository{}
-	mockAutomationRepo := &MockAutomationRuleRepository{}
+	mockAutomationRepo := &MockFollowupRepository{}
 	mockThreadRepo := &MockEmailThreadRepository{}
 
 	config := &domain.Config{
@@ -600,7 +602,7 @@ func TestGetCredential(t *testing.T) {
 // TestCheckForReplies tests the CheckForReplies method
 func TestCheckForReplies(t *testing.T) {
 	mockEmailRepo := &MockEmailCredentialRepository{}
-	mockAutomationRepo := &MockAutomationRuleRepository{}
+	mockAutomationRepo := &MockFollowupRepository{}
 	mockThreadRepo := &MockEmailThreadRepository{}
 
 	config := &domain.Config{
@@ -622,7 +624,7 @@ func TestCheckForReplies(t *testing.T) {
 // TestMatchMessageToThread tests the thread matching logic
 func TestMatchMessageToThread(t *testing.T) {
 	mockEmailRepo := &MockEmailCredentialRepository{}
-	mockAutomationRepo := &MockAutomationRuleRepository{}
+	mockAutomationRepo := &MockFollowupRepository{}
 	mockThreadRepo := &MockEmailThreadRepository{
 		getByGmailThreadIDFunc: func(ctx context.Context, gmailThreadID string) (*domain.EmailThread, error) {
 			if gmailThreadID == "test-message-id" {
@@ -669,7 +671,7 @@ func TestMatchMessageToThread(t *testing.T) {
 // TestMatchMessageToThread_References tests thread matching via references header
 func TestMatchMessageToThread_References(t *testing.T) {
 	mockEmailRepo := &MockEmailCredentialRepository{}
-	mockAutomationRepo := &MockAutomationRuleRepository{}
+	mockAutomationRepo := &MockFollowupRepository{}
 	mockThreadRepo := &MockEmailThreadRepository{
 		getByGmailThreadIDFunc: func(ctx context.Context, gmailThreadID string) (*domain.EmailThread, error) {
 			if gmailThreadID == "ref1" {
@@ -707,7 +709,7 @@ func TestMatchMessageToThread_References(t *testing.T) {
 // TestMatchMessageToThread_MessageID tests thread matching via message ID
 func TestMatchMessageToThread_MessageID(t *testing.T) {
 	mockEmailRepo := &MockEmailCredentialRepository{}
-	mockAutomationRepo := &MockAutomationRuleRepository{}
+	mockAutomationRepo := &MockFollowupRepository{}
 	mockThreadRepo := &MockEmailThreadRepository{
 		getByGmailThreadIDFunc: func(ctx context.Context, gmailThreadID string) (*domain.EmailThread, error) {
 			if gmailThreadID == "original-message-id" {
@@ -745,7 +747,7 @@ func TestMatchMessageToThread_MessageID(t *testing.T) {
 // TestMatchMessageToThread_DifferentUser tests that thread matching respects user boundaries
 func TestMatchMessageToThread_DifferentUser(t *testing.T) {
 	mockEmailRepo := &MockEmailCredentialRepository{}
-	mockAutomationRepo := &MockAutomationRuleRepository{}
+	mockAutomationRepo := &MockFollowupRepository{}
 	mockThreadRepo := &MockEmailThreadRepository{
 		getByGmailThreadIDFunc: func(ctx context.Context, gmailThreadID string) (*domain.EmailThread, error) {
 			// Return thread for different user
@@ -781,7 +783,7 @@ func TestMatchMessageToThread_DifferentUser(t *testing.T) {
 // TestComposeEmailBody tests email body composition
 func TestComposeEmailBody(t *testing.T) {
 	mockEmailRepo := &MockEmailCredentialRepository{}
-	mockAutomationRepo := &MockAutomationRuleRepository{}
+	mockAutomationRepo := &MockFollowupRepository{}
 	mockThreadRepo := &MockEmailThreadRepository{}
 
 	config := &domain.Config{
@@ -792,7 +794,7 @@ func TestComposeEmailBody(t *testing.T) {
 
 	service := NewEmailService(mockEmailRepo, mockAutomationRepo, mockThreadRepo, config)
 
-	automation := &domain.AutomationRule{
+	automation := &domain.Followup{
 		JiraTicketKey: "PROJ-123",
 	}
 
@@ -811,7 +813,7 @@ func TestComposeEmailBody(t *testing.T) {
 // TestDecryptPassword_InvalidKey tests decryption with invalid key
 func TestDecryptPassword_InvalidKey(t *testing.T) {
 	mockEmailRepo := &MockEmailCredentialRepository{}
-	mockAutomationRepo := &MockAutomationRuleRepository{}
+	mockAutomationRepo := &MockFollowupRepository{}
 	mockThreadRepo := &MockEmailThreadRepository{}
 
 	config := &domain.Config{
@@ -842,7 +844,7 @@ func TestSendFollowUp_JiraIssueNotFound(t *testing.T) {
 			}, nil
 		},
 	}
-	mockAutomationRepo := &MockAutomationRuleRepository{}
+	mockAutomationRepo := &MockFollowupRepository{}
 	mockThreadRepo := &MockEmailThreadRepository{}
 
 	config := &domain.Config{
@@ -881,7 +883,7 @@ func TestSendFollowUp_ThreadCreationFailed(t *testing.T) {
 			}, nil
 		},
 	}
-	mockAutomationRepo := &MockAutomationRuleRepository{}
+	mockAutomationRepo := &MockFollowupRepository{}
 	mockThreadRepo := &MockEmailThreadRepository{}
 
 	config := &domain.Config{
@@ -924,7 +926,7 @@ func TestRegisterCredential_UpdateExisting(t *testing.T) {
 			return nil
 		},
 	}
-	mockAutomationRepo := &MockAutomationRuleRepository{}
+	mockAutomationRepo := &MockFollowupRepository{}
 	mockThreadRepo := &MockEmailThreadRepository{}
 
 	config := &domain.Config{
@@ -954,7 +956,7 @@ func TestRegisterCredential_UpdateExisting(t *testing.T) {
 // TestRegisterCredential_MissingEmail tests validation of email address
 func TestRegisterCredential_MissingEmail(t *testing.T) {
 	mockEmailRepo := &MockEmailCredentialRepository{}
-	mockAutomationRepo := &MockAutomationRuleRepository{}
+	mockAutomationRepo := &MockFollowupRepository{}
 	mockThreadRepo := &MockEmailThreadRepository{}
 
 	config := &domain.Config{
@@ -988,7 +990,7 @@ func TestRegisterCredential_MissingEmail(t *testing.T) {
 // TestSendFollowUp_Legacy tests the legacy SendFollowUp method
 func TestSendFollowUp_Legacy(t *testing.T) {
 	mockEmailRepo := &MockEmailCredentialRepository{}
-	mockAutomationRepo := &MockAutomationRuleRepository{}
+	mockAutomationRepo := &MockFollowupRepository{}
 	mockThreadRepo := &MockEmailThreadRepository{}
 
 	config := &domain.Config{

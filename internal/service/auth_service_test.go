@@ -94,21 +94,21 @@ func (m *mockOAuthTokenRepo) Delete(ctx context.Context, userID, provider string
 }
 
 type mockAutomationRepo struct {
-	rules map[string]*domain.AutomationRule
+	rules map[string]*domain.Followup
 }
 
 func newMockAutomationRepo() *mockAutomationRepo {
 	return &mockAutomationRepo{
-		rules: make(map[string]*domain.AutomationRule),
+		rules: make(map[string]*domain.Followup),
 	}
 }
 
-func (m *mockAutomationRepo) Create(ctx context.Context, rule *domain.AutomationRule) error {
+func (m *mockAutomationRepo) Create(ctx context.Context, rule *domain.Followup) error {
 	m.rules[rule.ID] = rule
 	return nil
 }
 
-func (m *mockAutomationRepo) GetByID(ctx context.Context, id string) (*domain.AutomationRule, error) {
+func (m *mockAutomationRepo) GetByID(ctx context.Context, id string) (*domain.Followup, error) {
 	rule, ok := m.rules[id]
 	if !ok {
 		return nil, &domain.ValidationError{Field: "id", Message: "not found"}
@@ -116,8 +116,8 @@ func (m *mockAutomationRepo) GetByID(ctx context.Context, id string) (*domain.Au
 	return rule, nil
 }
 
-func (m *mockAutomationRepo) GetByUserID(ctx context.Context, userID string) ([]*domain.AutomationRule, error) {
-	var rules []*domain.AutomationRule
+func (m *mockAutomationRepo) GetByUserID(ctx context.Context, userID string) ([]*domain.Followup, error) {
+	var rules []*domain.Followup
 	for _, rule := range m.rules {
 		if rule.UserID == userID {
 			rules = append(rules, rule)
@@ -126,17 +126,17 @@ func (m *mockAutomationRepo) GetByUserID(ctx context.Context, userID string) ([]
 	return rules, nil
 }
 
-func (m *mockAutomationRepo) GetActiveRules(ctx context.Context) ([]*domain.AutomationRule, error) {
-	var rules []*domain.AutomationRule
+func (m *mockAutomationRepo) GetActiveRules(ctx context.Context) ([]*domain.Followup, error) {
+	var rules []*domain.Followup
 	for _, rule := range m.rules {
-		if rule.Status == domain.AutomationStatusActive {
+		if rule.Status == domain.FollowupStatusOngoing {
 			rules = append(rules, rule)
 		}
 	}
 	return rules, nil
 }
 
-func (m *mockAutomationRepo) Update(ctx context.Context, rule *domain.AutomationRule) error {
+func (m *mockAutomationRepo) Update(ctx context.Context, rule *domain.Followup) error {
 	m.rules[rule.ID] = rule
 	return nil
 }
@@ -437,19 +437,19 @@ func TestRefreshJiraToken_RefreshFailed_PausesAutomations(t *testing.T) {
 	oauthRepo.Create(ctx, existingToken)
 
 	// Create active automation rules
-	automationRepo.Create(ctx, &domain.AutomationRule{
+	automationRepo.Create(ctx, &domain.Followup{
 		ID:           "automation1",
 		UserID:       "user123",
 		JiraTicketID: "ticket1",
-		Status:       domain.AutomationStatusActive,
+		Status:       domain.FollowupStatusOngoing,
 		CreatedAt:    time.Now(),
 	})
 
-	automationRepo.Create(ctx, &domain.AutomationRule{
+	automationRepo.Create(ctx, &domain.Followup{
 		ID:           "automation2",
 		UserID:       "user123",
 		JiraTicketID: "ticket2",
-		Status:       domain.AutomationStatusActive,
+		Status:       domain.FollowupStatusOngoing,
 		CreatedAt:    time.Now(),
 	})
 
@@ -468,7 +468,7 @@ func TestRefreshJiraToken_RefreshFailed_PausesAutomations(t *testing.T) {
 	assert.Len(t, rules, 2)
 
 	for _, rule := range rules {
-		assert.Equal(t, domain.AutomationStatusActive, rule.Status, "Automation %s should still be active", rule.ID)
+		assert.Equal(t, domain.FollowupStatusOngoing, rule.Status, "Automation %s should still be active", rule.ID)
 	}
 }
 

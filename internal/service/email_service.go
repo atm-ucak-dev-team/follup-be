@@ -17,24 +17,24 @@ import (
 
 // EmailServiceImpl implements the EmailService interface
 type EmailServiceImpl struct {
-	emailRepo      repository.EmailCredentialRepository
-	automationRepo repository.AutomationRuleRepository
-	threadRepo     repository.EmailThreadRepository
-	config         *domain.Config
+	emailRepo    repository.EmailCredentialRepository
+	followupRepo repository.FollowupRepository
+	threadRepo   repository.EmailThreadRepository
+	config       *domain.Config
 }
 
 // NewEmailService creates a new EmailService instance
 func NewEmailService(
 	emailRepo repository.EmailCredentialRepository,
-	automationRepo repository.AutomationRuleRepository,
+	followupRepo repository.FollowupRepository,
 	threadRepo repository.EmailThreadRepository,
 	config *domain.Config,
 ) EmailService {
 	return &EmailServiceImpl{
-		emailRepo:      emailRepo,
-		automationRepo: automationRepo,
-		threadRepo:     threadRepo,
-		config:         config,
+		emailRepo:    emailRepo,
+		followupRepo: followupRepo,
+		threadRepo:   threadRepo,
+		config:       config,
 	}
 }
 
@@ -66,10 +66,10 @@ func (s *EmailServiceImpl) SaveCredential(ctx context.Context, userID, email, pa
 
 // SendFollowUpByAutomation sends a follow-up email based on automation ID
 func (s *EmailServiceImpl) SendFollowUpByAutomation(ctx context.Context, automationID string) error {
-	// Get automation rule by ID
-	automation, err := s.automationRepo.GetByID(ctx, automationID)
+	// Get followup rule by ID
+	automation, err := s.followupRepo.GetByID(ctx, automationID)
 	if err != nil {
-		return fmt.Errorf("failed to get automation rule: %w", err)
+		return fmt.Errorf("failed to get followup rule: %w", err)
 	}
 
 	// Get email credential for user
@@ -89,7 +89,8 @@ func (s *EmailServiceImpl) SendFollowUpByAutomation(ctx context.Context, automat
 	body := s.composeEmailBodyForAutomation(automation)
 
 	// Connect to SMTP (STARTTLS)
-	if err := s.sendEmail(cred.EmailAddress, password, cred.SMTPHost, subject, body, automation.Recipients); err != nil {
+	recipients := []string{automation.To}
+	if err := s.sendEmail(cred.EmailAddress, password, cred.SMTPHost, subject, body, recipients); err != nil {
 		return fmt.Errorf("failed to send email: %w", err)
 	}
 
@@ -111,8 +112,8 @@ func (s *EmailServiceImpl) SendFollowUpByAutomation(ctx context.Context, automat
 	// Update automation last run time
 	now := time.Now()
 	automation.LastRunAt = &now
-	if err := s.automationRepo.Update(ctx, automation); err != nil {
-		return fmt.Errorf("failed to update automation: %w", err)
+	if err := s.followupRepo.Update(ctx, automation); err != nil {
+		return fmt.Errorf("failed to update followup: %w", err)
 	}
 
 	return nil
@@ -120,15 +121,15 @@ func (s *EmailServiceImpl) SendFollowUpByAutomation(ctx context.Context, automat
 
 // PollInbox polls IMAP inbox for replies
 func (s *EmailServiceImpl) PollInbox(ctx context.Context) error {
-	// Get all active automation rules
-	activeAutomations, err := s.automationRepo.GetActiveRules(ctx)
+	// Get all active followup rules
+	activeFollowups, err := s.followupRepo.GetActiveRules(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get active automations: %w", err)
+		return fmt.Errorf("failed to get active followups: %w", err)
 	}
 
-	// Group automations by user to avoid redundant credential lookups
-	userAutomations := make(map[string][]*domain.AutomationRule)
-	for _, automation := range activeAutomations {
+	// Group followups by user to avoid redundant credential lookups
+	userAutomations := make(map[string][]*domain.Followup)
+	for _, automation := range activeFollowups {
 		userAutomations[automation.UserID] = append(userAutomations[automation.UserID], automation)
 	}
 
@@ -144,7 +145,7 @@ func (s *EmailServiceImpl) PollInbox(ctx context.Context) error {
 }
 
 // processUserInbox processes a single user's inbox for replies
-func (s *EmailServiceImpl) processUserInbox(ctx context.Context, userID string, automations []*domain.AutomationRule) error {
+func (s *EmailServiceImpl) processUserInbox(ctx context.Context, userID string, automations []*domain.Followup) error {
 	// Get email credential
 	cred, err := s.emailRepo.GetByUserID(ctx, userID)
 	if err != nil {
@@ -343,7 +344,7 @@ func (s *EmailServiceImpl) sendEmail(from, password, host, subject, body string,
 }
 
 // composeEmailBody creates the email body with Jira ticket context
-func (s *EmailServiceImpl) composeEmailBodyForAutomation(automation *domain.AutomationRule) string {
+func (s *EmailServiceImpl) composeEmailBodyForAutomation(automation *domain.Followup) string {
 	return fmt.Sprintf(`Hello,
 
 This is a follow-up regarding the Jira ticket: %s
