@@ -8,11 +8,11 @@ import (
 	"os"
 	"os/signal"
 
-	// "strings" // DISABLED: No longer needed after JWT removal
+	"strings"
 	"syscall"
 	"time"
 
-	// "github.com/golang-jwt/jwt/v5" // DISABLED: JWT authentication
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/atm-ucak/follup/config"
 	"github.com/atm-ucak/follup/internal/cron"
 	"github.com/atm-ucak/follup/internal/email"
@@ -26,8 +26,6 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 )
 
-/*
-// DISABLED: JWT Authentication Middleware
 // jwtMiddleware creates a simple JWT authentication middleware
 func jwtMiddleware(jwtSecret string) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
@@ -79,7 +77,6 @@ func jwtMiddleware(jwtSecret string) echo.MiddlewareFunc {
 		}
 	}
 }
-*/
 
 func main() {
 	// 1. Load config (Viper)
@@ -155,6 +152,7 @@ func main() {
 	emailHandler := handler.NewEmailHandler(emailService)
 	automationHandler := handler.NewAutomationHandler(automationService)
 	followupHandler := handler.NewFollowupHandler(automationService)
+	ticketHandler := handler.NewTicketHandler(jiraService, automationService)
 
 	log.Println("Initialized handlers")
 
@@ -194,23 +192,12 @@ func main() {
 	// Dummy callback endpoint for frontend testing (development only)
 	e.GET("/auth/jira/dummy-callback", authHandler.DummyJiraCallback)
 
-	// Protected routes (JWT DISABLED - using X-User-Dummy-Id header instead)
-	api := e.Group("/api/v1")
-	// DISABLED: api.Use(jwtMiddleware(cfg.JWTSecret))
+	// Dev token endpoint (development only)
+	e.GET("/auth/dev/token", authHandler.DevToken)
 
-	// Replacement: Extract user_id from X-User-Dummy-Id header
-	api.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			userID := c.Request().Header.Get("X-User-Dummy-Id")
-			if userID == "" {
-				return c.JSON(http.StatusUnauthorized, map[string]string{
-					"error": "missing X-User-Dummy-Id header",
-				})
-			}
-			c.Set("user_id", userID)
-			return next(c)
-		}
-	})
+	// Protected routes (JWT authentication required)
+	api := e.Group("/api/v1")
+	api.Use(jwtMiddleware(cfg.JWTSecret))
 
 	// Email credentials routes
 	api.POST("/email/credentials", emailHandler.SaveCredentials)
@@ -229,10 +216,14 @@ func main() {
 	api.POST("/automations/:id/trigger", automationHandler.TriggerAutomation)
 
 	// Followup routes
+	api.POST("/followups", followupHandler.CreateFollowup)
 	api.GET("/followup", followupHandler.ListFollowups)
 	api.GET("/:jiraTicketID/followups", followupHandler.GetFollowupsByTicketID)
 	api.GET("/:jiraTicketID/summary", followupHandler.GetSummary)
 	api.GET("/statistic", followupHandler.GetGlobalSummary)
+
+	// Ticket routes
+	api.GET("/tickets", ticketHandler.GetTickets)
 
 	log.Println("Registered HTTP routes")
 

@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"time"
 
-	// "github.com/golang-jwt/jwt/v5" // DISABLED: JWT authentication
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/atm-ucak/follup/internal/domain"
 	"github.com/atm-ucak/follup/internal/repository"
 )
@@ -78,9 +78,10 @@ type JiraTokenInfo struct {
 	AccessToken  string    `json:"access_token"`
 	RefreshToken string    `json:"refresh_token"`
 	ExpiresAt    time.Time `json:"expires_at"`
-	ExpiresIn    int64     `json:"expires_in"` // Seconds until expiration
+	ExpiresIn    int64     `json:"expires_in"`
 	TokenType    string    `json:"token_type"`
 	Scope        string    `json:"scope"`
+	Token        string    `json:"token"` // App JWT for API authentication
 }
 
 // ExchangeJiraCode exchanges the authorization code for access token and returns user with token info
@@ -122,6 +123,12 @@ func (s *AuthServiceImpl) ExchangeJiraCode(ctx context.Context, code, state stri
 		return nil, nil, fmt.Errorf("failed to save OAuth token: %w", err)
 	}
 
+	// Generate app JWT for API authentication
+	appToken, err := s.generateJWT(user.ID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to generate JWT: %w", err)
+	}
+
 	// Create token info response
 	tokenInfo := &JiraTokenInfo{
 		AccessToken:  tokenResp.AccessToken,
@@ -130,6 +137,7 @@ func (s *AuthServiceImpl) ExchangeJiraCode(ctx context.Context, code, state stri
 		ExpiresIn:    tokenResp.ExpiresIn,
 		TokenType:    tokenResp.TokenType,
 		Scope:        tokenResp.Scope,
+		Token:        appToken,
 	}
 
 	return user, tokenInfo, nil
@@ -360,13 +368,11 @@ func (s *AuthServiceImpl) pauseUserAutomations(ctx context.Context, userID strin
 	return nil
 }
 
-/*
-// DISABLED: JWT generation
 // generateJWT generates a JWT token for the given user ID
 func (s *AuthServiceImpl) generateJWT(userID string) (string, error) {
 	claims := jwt.MapClaims{
 		"user_id": userID,
-		"exp":     time.Now().Add(24 * time.Hour).Unix(), // 24 hour expiry
+		"exp":     time.Now().Add(24 * time.Hour).Unix(),
 		"iat":     time.Now().Unix(),
 	}
 
@@ -378,4 +384,8 @@ func (s *AuthServiceImpl) generateJWT(userID string) (string, error) {
 
 	return tokenString, nil
 }
-*/
+
+// GenerateToken generates an app JWT for the given user ID
+func (s *AuthServiceImpl) GenerateToken(userID string) (string, error) {
+	return s.generateJWT(userID)
+}

@@ -81,6 +81,10 @@ func (m *mockAuthService) ValidateToken(token *domain.OAuthToken) bool {
 	return true
 }
 
+func (m *mockAuthService) GenerateToken(userID string) (string, error) {
+	return "test-jwt-token", nil
+}
+
 // TestConnectJira_JSONResponseSuccess tests that the connect endpoint returns JSON with authorization URL
 func TestConnectJira_JSONResponseSuccess(t *testing.T) {
 	// Setup

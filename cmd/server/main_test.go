@@ -138,16 +138,16 @@ func TestRouteRegistration(t *testing.T) {
 		"GET /auth/jira/connect":               "no auth",
 		"GET /auth/jira/callback":              "no auth",
 		"POST /auth/jira/refresh":              "no auth",
-		"POST /api/v1/email/credentials":       "X-User-Dummy-Id header auth",
-		"GET /api/v1/email/credentials":        "X-User-Dummy-Id header auth",
-		"GET /api/v1/jira/issues":              "X-User-Dummy-Id header auth",
-		"GET /api/v1/jira/issues/:ticket_key":  "X-User-Dummy-Id header auth",
-		"POST /api/v1/automations":             "X-User-Dummy-Id header auth",
-		"GET /api/v1/automations":              "X-User-Dummy-Id header auth",
-		"GET /api/v1/automations/:id":          "X-User-Dummy-Id header auth",
-		"PATCH /api/v1/automations/:id":        "X-User-Dummy-Id header auth",
-		"DELETE /api/v1/automations/:id":       "X-User-Dummy-Id header auth",
-		"POST /api/v1/automations/:id/trigger": "X-User-Dummy-Id header auth",
+		"POST /api/v1/email/credentials":       "JWT Bearer token auth",
+		"GET /api/v1/email/credentials":        "JWT Bearer token auth",
+		"GET /api/v1/jira/issues":              "JWT Bearer token auth",
+		"GET /api/v1/jira/issues/:ticket_key":  "JWT Bearer token auth",
+		"POST /api/v1/automations":             "JWT Bearer token auth",
+		"GET /api/v1/automations":              "JWT Bearer token auth",
+		"GET /api/v1/automations/:id":          "JWT Bearer token auth",
+		"PATCH /api/v1/automations/:id":        "JWT Bearer token auth",
+		"DELETE /api/v1/automations/:id":       "JWT Bearer token auth",
+		"POST /api/v1/automations/:id/trigger": "JWT Bearer token auth",
 	}
 
 	for route, auth := range expectedRoutes {
@@ -166,7 +166,7 @@ func signalNotificationContext(ctx context.Context, signals ...os.Signal) (conte
 func TestEnvironmentConfiguration(t *testing.T) {
 	requiredVars := []string{
 		"AES_SECRET_KEY",
-		// "JWT_SECRET", // DISABLED: JWT authentication removed
+		"JWT_SECRET",
 		"JIRA_CLIENT_ID",
 		"JIRA_CLIENT_SECRET",
 		"JIRA_REDIRECT_URI",
@@ -197,7 +197,7 @@ func TestEnvironmentConfiguration(t *testing.T) {
 		t.Logf("- %s", v)
 	}
 
-	assert.Equal(t, 6, len(requiredVars), "Should have 6 required environment variables (JWT removed)")
+	assert.Equal(t, 7, len(requiredVars), "Should have 7 required environment variables")
 	assert.Equal(t, 10, len(optionalVars), "Should have 10 optional environment variables")
 }
 

@@ -53,10 +53,9 @@ func (c *Config) Validate() error {
 	if len(c.AESSecretKey) != 32 {
 		return &ValidationError{Field: "AESSecretKey", Message: "must be exactly 32 characters"}
 	}
-	// DISABLED: JWT validation - JWT authentication removed
-	// if c.JWTSecret == "" {
-	//     return &ValidationError{Field: "JWTSecret", Message: "is required"}
-	// }
+	if c.JWTSecret == "" {
+		return &ValidationError{Field: "JWTSecret", Message: "is required"}
+	}
 
 	// DragonflyDB validation
 	if c.DragonflyAddr == "" {
