@@ -72,8 +72,10 @@ func RunMigrations(dsn string) error {
 		return fmt.Errorf("DSN is empty, skipping migrations")
 	}
 
-	// Convert postgres:// to pgx5:// for golang-migrate pgx v5 driver
-	migrateDSN := strings.Replace(dsn, "postgres://", "pgx5://", 1)
+	// Convert postgres:// or postgresql:// to pgx5:// for golang-migrate pgx v5 driver
+	migrateDSN := dsn
+	migrateDSN = strings.Replace(migrateDSN, "postgresql://", "pgx5://", 1)
+	migrateDSN = strings.Replace(migrateDSN, "postgres://", "pgx5://", 1)
 
 	m, err := migrate.New("file://cmd/server/db/migrations", migrateDSN)
 	if err != nil {
