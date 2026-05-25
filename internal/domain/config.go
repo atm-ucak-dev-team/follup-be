@@ -66,10 +66,8 @@ func (c *Config) Validate() error {
 		return &ValidationError{Field: "DragonflyDB", Message: "must be between 0 and 15"}
 	}
 
-	// PostgreSQL validation
-	if c.PostgresDSN == "" {
-		return &ValidationError{Field: "PostgresDSN", Message: "is required"}
-	}
+	// PostgreSQL validation (optional — app runs without it)
+	// No validation — empty DSN means PostgreSQL is unavailable
 
 	// Jira OAuth validation
 	if c.JiraClientID == "" {

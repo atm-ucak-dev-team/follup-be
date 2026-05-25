@@ -2,9 +2,14 @@ package infra
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"strings"
 
 	"github.com/atm-ucak/follup/internal/domain"
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/pgx/v5"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -56,4 +61,30 @@ func ClosePostgresPool(pool *pgxpool.Pool) {
 		log.Println("Closing PostgreSQL connection pool")
 		pool.Close()
 	}
+}
+
+// RunMigrations applies pending database migrations using golang-migrate.
+//
+// DSN format: postgres://user:password@host:port/dbname?sslmode=...
+// The function converts the DSN to pgx5:// scheme required by the migrate driver.
+func RunMigrations(dsn string) error {
+	if dsn == "" {
+		return fmt.Errorf("DSN is empty, skipping migrations")
+	}
+
+	// Convert postgres:// to pgx5:// for golang-migrate pgx v5 driver
+	migrateDSN := strings.Replace(dsn, "postgres://", "pgx5://", 1)
+
+	m, err := migrate.New("file://cmd/server/db/migrations", migrateDSN)
+	if err != nil {
+		return fmt.Errorf("migrate init: %w", err)
+	}
+	defer m.Close()
+
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		return fmt.Errorf("migrate up: %w", err)
+	}
+
+	log.Println("Database migrations completed successfully")
+	return nil
 }

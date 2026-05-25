@@ -30,13 +30,13 @@ type EmailCredentialRepository interface {
 	Delete(ctx context.Context, userID string) error
 }
 
-// AutomationRuleRepository defines the interface for automation rule operations
-type AutomationRuleRepository interface {
-	Create(ctx context.Context, rule *domain.AutomationRule) error
-	GetByID(ctx context.Context, id string) (*domain.AutomationRule, error)
-	GetByUserID(ctx context.Context, userID string) ([]*domain.AutomationRule, error)
-	GetActiveRules(ctx context.Context) ([]*domain.AutomationRule, error)
-	Update(ctx context.Context, rule *domain.AutomationRule) error
+// FollowupRepository defines the interface for follow-up rule operations
+type FollowupRepository interface {
+	Create(ctx context.Context, rule *domain.Followup) error
+	GetByID(ctx context.Context, id string) (*domain.Followup, error)
+	GetByUserID(ctx context.Context, userID string) ([]*domain.Followup, error)
+	GetActiveRules(ctx context.Context) ([]*domain.Followup, error)
+	Update(ctx context.Context, rule *domain.Followup) error
 	Delete(ctx context.Context, id string) error
 }
 

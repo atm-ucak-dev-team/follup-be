@@ -21,33 +21,33 @@ type AuthService interface {
 	ValidateToken(token *domain.OAuthToken) bool
 }
 
-// AutomationService defines the interface for automation rule operations
+// AutomationService defines the interface for followup rule operations
 type AutomationService interface {
-	// CreateRule creates a new automation rule
-	CreateRule(ctx interface{}, rule *domain.AutomationRule) error
+	// CreateRule creates a new followup rule
+	CreateRule(ctx interface{}, rule *domain.Followup) error
 
-	// GetRule retrieves an automation rule by ID
-	GetRule(ctx interface{}, id string) (*domain.AutomationRule, error)
+	// GetRule retrieves a followup rule by ID
+	GetRule(ctx interface{}, id string) (*domain.Followup, error)
 
 	// GetUserRules retrieves all rules for a user
-	GetUserRules(ctx interface{}, userID string) ([]*domain.AutomationRule, error)
+	GetUserRules(ctx interface{}, userID string) ([]*domain.Followup, error)
 
-	// UpdateRule updates an existing automation rule
-	UpdateRule(ctx interface{}, rule *domain.AutomationRule) error
+	// UpdateRule updates an existing followup rule
+	UpdateRule(ctx interface{}, rule *domain.Followup) error
 
-	// DeleteRule deletes an automation rule
+	// DeleteRule deletes a followup rule
 	DeleteRule(ctx interface{}, id string) error
 
-	// PauseRule pauses an active automation rule
+	// PauseRule pauses an active followup rule
 	PauseRule(ctx interface{}, id string) error
 
-	// ResumeRule resumes a paused automation rule
+	// ResumeRule resumes a paused followup rule
 	ResumeRule(ctx interface{}, id string) error
 
-	// GetActiveRules retrieves all active automation rules
-	GetActiveRules(ctx interface{}) ([]*domain.AutomationRule, error)
+	// GetActiveRules retrieves all active followup rules
+	GetActiveRules(ctx interface{}) ([]*domain.Followup, error)
 
-	// TriggerRule manually executes an automation rule
+	// TriggerRule manually executes a followup rule
 	TriggerRule(ctx interface{}, automationID string) error
 }
 

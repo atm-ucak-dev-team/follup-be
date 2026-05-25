@@ -15,75 +15,75 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-// MockAutomationService is a mock for testing automation handler
-type MockAutomationService struct {
+// MockFollowupService is a mock for testing automation handler
+type MockFollowupService struct {
 	mock.Mock
 }
 
-func (m *MockAutomationService) CreateRule(ctx interface{}, rule *domain.AutomationRule) error {
+func (m *MockFollowupService) CreateRule(ctx interface{}, rule *domain.Followup) error {
 	args := m.Called(ctx, rule)
 	return args.Error(0)
 }
 
-func (m *MockAutomationService) GetRule(ctx interface{}, id string) (*domain.AutomationRule, error) {
+func (m *MockFollowupService) GetRule(ctx interface{}, id string) (*domain.Followup, error) {
 	args := m.Called(ctx, id)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.AutomationRule), args.Error(1)
+	return args.Get(0).(*domain.Followup), args.Error(1)
 }
 
-func (m *MockAutomationService) GetUserRules(ctx interface{}, userID string) ([]*domain.AutomationRule, error) {
+func (m *MockFollowupService) GetUserRules(ctx interface{}, userID string) ([]*domain.Followup, error) {
 	args := m.Called(ctx, userID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.AutomationRule), args.Error(1)
+	return args.Get(0).([]*domain.Followup), args.Error(1)
 }
 
-func (m *MockAutomationService) UpdateRule(ctx interface{}, rule *domain.AutomationRule) error {
+func (m *MockFollowupService) UpdateRule(ctx interface{}, rule *domain.Followup) error {
 	args := m.Called(ctx, rule)
 	return args.Error(0)
 }
 
-func (m *MockAutomationService) DeleteRule(ctx interface{}, id string) error {
+func (m *MockFollowupService) DeleteRule(ctx interface{}, id string) error {
 	args := m.Called(ctx, id)
 	return args.Error(0)
 }
 
-func (m *MockAutomationService) PauseRule(ctx interface{}, id string) error {
+func (m *MockFollowupService) PauseRule(ctx interface{}, id string) error {
 	args := m.Called(ctx, id)
 	return args.Error(0)
 }
 
-func (m *MockAutomationService) ResumeRule(ctx interface{}, id string) error {
+func (m *MockFollowupService) ResumeRule(ctx interface{}, id string) error {
 	args := m.Called(ctx, id)
 	return args.Error(0)
 }
 
-func (m *MockAutomationService) GetActiveRules(ctx interface{}) ([]*domain.AutomationRule, error) {
+func (m *MockFollowupService) GetActiveRules(ctx interface{}) ([]*domain.Followup, error) {
 	args := m.Called(ctx)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.AutomationRule), args.Error(1)
+	return args.Get(0).([]*domain.Followup), args.Error(1)
 }
 
-func (m *MockAutomationService) TriggerRule(ctx interface{}, automationID string) error {
+func (m *MockFollowupService) TriggerRule(ctx interface{}, automationID string) error {
 	args := m.Called(ctx, automationID)
 	return args.Error(0)
 }
 
 // Helper function to create a test automation rule
-func createTestAutomationRule() *domain.AutomationRule {
-	return &domain.AutomationRule{
+func createTestFollowup() *domain.Followup {
+	return &domain.Followup{
 		ID:            "test-automation-id",
 		UserID:        "test-user-123",
 		JiraTicketID:  "ticket-456",
 		JiraTicketKey: "PROJ-123",
-		Recipients:    []string{"test@example.com"},
-		CronSchedule:  "0 9 * * 1",
-		Status:        domain.AutomationStatusActive,
+		To:            "test@example.com",
+		Frequency:  "0 9 * * 1",
+		Status:        domain.FollowupStatusOngoing,
 	}
 }
 
@@ -125,18 +125,20 @@ func splitPath(path string) []string {
 func TestCreateAutomation_Success(t *testing.T) {
 	// Setup
 	e := echo.New()
-	mockService := new(MockAutomationService)
+	mockService := new(MockFollowupService)
 	handler := NewAutomationHandler(mockService)
 
-	mockService.On("CreateRule", mock.Anything, mock.MatchedBy(func(r *domain.AutomationRule) bool {
+	mockService.On("CreateRule", mock.Anything, mock.MatchedBy(func(r *domain.Followup) bool {
 		return r.UserID == "test-user-123" && r.JiraTicketKey == "PROJ-123"
 	})).Return(nil)
 
 	reqBody := CreateAutomationRequest{
 		JiraTicketID:  "ticket-456",
 		JiraTicketKey: "PROJ-123",
-		Recipients:    []string{"test@example.com"},
-		CronSchedule:  "0 9 * * 1",
+		To:            "test@example.com",
+		Subject:       "Test Subject",
+		EmailBody:     "Test body",
+		Frequency:     "0 9 * * 1",
 	}
 
 	bodyJSON, _ := json.Marshal(reqBody)
@@ -151,7 +153,7 @@ func TestCreateAutomation_Success(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusCreated, rec.Code)
 
-	var response domain.AutomationRule
+	var response domain.Followup
 	err = json.Unmarshal(rec.Body.Bytes(), &response)
 	assert.NoError(t, err)
 	assert.Equal(t, "PROJ-123", response.JiraTicketKey)
@@ -163,16 +165,18 @@ func TestCreateAutomation_Success(t *testing.T) {
 func TestCreateAutomation_InvalidCron(t *testing.T) {
 	// Setup
 	e := echo.New()
-	mockService := new(MockAutomationService)
+	mockService := new(MockFollowupService)
 	handler := NewAutomationHandler(mockService)
 
-	mockService.On("CreateRule", mock.Anything, mock.Anything).Return(errors.New("invalid cron expression"))
+	mockService.On("CreateRule", mock.Anything, mock.Anything).Return(errors.New("invalid frequency: invalid cron expression"))
 
 	reqBody := CreateAutomationRequest{
 		JiraTicketID:  "ticket-456",
 		JiraTicketKey: "PROJ-123",
-		Recipients:    []string{"test@example.com"},
-		CronSchedule:  "invalid-cron",
+		To:            "test@example.com",
+		Subject:       "Test Subject",
+		EmailBody:     "Test body",
+		Frequency:     "invalid-cron",
 	}
 
 	bodyJSON, _ := json.Marshal(reqBody)
@@ -190,22 +194,24 @@ func TestCreateAutomation_InvalidCron(t *testing.T) {
 	var response ErrorResponse
 	err = json.Unmarshal(rec.Body.Bytes(), &response)
 	assert.NoError(t, err)
-	assert.Equal(t, "INVALID_CRON", response.Error.Code)
+	assert.Equal(t, "INVALID_FREQUENCY", response.Error.Code)
 
 	mockService.AssertExpectations(t)
 }
 
-func TestCreateAutomation_EmptyRecipients(t *testing.T) {
+func TestCreateAutomation_EmptyTo(t *testing.T) {
 	// Setup
 	e := echo.New()
-	mockService := new(MockAutomationService)
+	mockService := new(MockFollowupService)
 	handler := NewAutomationHandler(mockService)
 
 	reqBody := CreateAutomationRequest{
 		JiraTicketID:  "ticket-456",
 		JiraTicketKey: "PROJ-123",
-		Recipients:    []string{}, // Empty recipients
-		CronSchedule:  "0 9 * * 1",
+		To:            "", // Empty recipient
+		Subject:       "Test Subject",
+		EmailBody:     "Test body",
+		Frequency:     "0 9 * * 1",
 	}
 
 	bodyJSON, _ := json.Marshal(reqBody)
@@ -223,7 +229,7 @@ func TestCreateAutomation_EmptyRecipients(t *testing.T) {
 	var response ErrorResponse
 	err = json.Unmarshal(rec.Body.Bytes(), &response)
 	assert.NoError(t, err)
-	assert.Equal(t, "MISSING_RECIPIENTS", response.Error.Code)
+	assert.Equal(t, "MISSING_TO", response.Error.Code)
 
 	mockService.AssertNotCalled(t, "CreateRule", mock.Anything, mock.Anything)
 }
@@ -231,14 +237,14 @@ func TestCreateAutomation_EmptyRecipients(t *testing.T) {
 func TestCreateAutomation_MissingAuthToken(t *testing.T) {
 	// Setup
 	e := echo.New()
-	mockService := new(MockAutomationService)
+	mockService := new(MockFollowupService)
 	handler := NewAutomationHandler(mockService)
 
 	reqBody := CreateAutomationRequest{
 		JiraTicketID:  "ticket-456",
 		JiraTicketKey: "PROJ-123",
-		Recipients:    []string{"test@example.com"},
-		CronSchedule:  "0 9 * * 1",
+		To:            "test@example.com",
+		Frequency:  "0 9 * * 1",
 	}
 
 	bodyJSON, _ := json.Marshal(reqBody)
@@ -267,19 +273,19 @@ func TestCreateAutomation_MissingAuthToken(t *testing.T) {
 func TestListAutomations_Success(t *testing.T) {
 	// Setup
 	e := echo.New()
-	mockService := new(MockAutomationService)
+	mockService := new(MockFollowupService)
 	handler := NewAutomationHandler(mockService)
 
-	expectedRules := []*domain.AutomationRule{
-		createTestAutomationRule(),
+	expectedRules := []*domain.Followup{
+		createTestFollowup(),
 		{
 			ID:            "test-automation-id-2",
 			UserID:        "test-user-123",
 			JiraTicketID:  "ticket-789",
 			JiraTicketKey: "PROJ-456",
-			Recipients:    []string{"another@example.com"},
-			CronSchedule:  "0 17 * * 5",
-			Status:        domain.AutomationStatusActive,
+			To:            "test@example.com",
+			Frequency:  "0 17 * * 5",
+			Status:        domain.FollowupStatusOngoing,
 		},
 	}
 
@@ -306,10 +312,10 @@ func TestListAutomations_Success(t *testing.T) {
 func TestGetAutomation_Success(t *testing.T) {
 	// Setup
 	e := echo.New()
-	mockService := new(MockAutomationService)
+	mockService := new(MockFollowupService)
 	handler := NewAutomationHandler(mockService)
 
-	expectedRule := createTestAutomationRule()
+	expectedRule := createTestFollowup()
 	mockService.On("GetRule", mock.Anything, "test-automation-id").Return(expectedRule, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/automations/test-automation-id", nil)
@@ -322,7 +328,7 @@ func TestGetAutomation_Success(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusOK, rec.Code)
 
-	var response domain.AutomationRule
+	var response domain.Followup
 	err = json.Unmarshal(rec.Body.Bytes(), &response)
 	assert.NoError(t, err)
 	assert.Equal(t, "test-automation-id", response.ID)
@@ -334,7 +340,7 @@ func TestGetAutomation_Success(t *testing.T) {
 func TestGetAutomation_NotFound(t *testing.T) {
 	// Setup
 	e := echo.New()
-	mockService := new(MockAutomationService)
+	mockService := new(MockFollowupService)
 	handler := NewAutomationHandler(mockService)
 
 	mockService.On("GetRule", mock.Anything, "non-existent-id").Return(nil, errors.New("automation rule not found"))
@@ -352,7 +358,7 @@ func TestGetAutomation_NotFound(t *testing.T) {
 	var response ErrorResponse
 	err = json.Unmarshal(rec.Body.Bytes(), &response)
 	assert.NoError(t, err)
-	assert.Equal(t, "AUTOMATION_NOT_FOUND", response.Error.Code)
+	assert.Equal(t, "FOLLOWUP_NOT_FOUND", response.Error.Code)
 
 	mockService.AssertExpectations(t)
 }
@@ -360,11 +366,11 @@ func TestGetAutomation_NotFound(t *testing.T) {
 func TestGetAutomation_Forbidden_OwnerMismatch(t *testing.T) {
 	// Setup
 	e := echo.New()
-	mockService := new(MockAutomationService)
+	mockService := new(MockFollowupService)
 	handler := NewAutomationHandler(mockService)
 
 	// Rule belongs to different user
-	differentUserRule := createTestAutomationRule()
+	differentUserRule := createTestFollowup()
 	differentUserRule.UserID = "different-user-456"
 
 	mockService.On("GetRule", mock.Anything, "test-automation-id").Return(differentUserRule, nil)
@@ -391,17 +397,17 @@ func TestGetAutomation_Forbidden_OwnerMismatch(t *testing.T) {
 func TestUpdateAutomation_Success(t *testing.T) {
 	// Setup
 	e := echo.New()
-	mockService := new(MockAutomationService)
+	mockService := new(MockFollowupService)
 	handler := NewAutomationHandler(mockService)
 
-	existingRule := createTestAutomationRule()
+	existingRule := createTestFollowup()
 	mockService.On("GetRule", mock.Anything, "test-automation-id").Return(existingRule, nil)
-	mockService.On("UpdateRule", mock.Anything, mock.MatchedBy(func(r *domain.AutomationRule) bool {
-		return r.Recipients[0] == "updated@example.com"
+	mockService.On("UpdateRule", mock.Anything, mock.MatchedBy(func(r *domain.Followup) bool {
+		return r.To == "updated@example.com"
 	})).Return(nil)
 
 	reqBody := UpdateAutomationRequest{
-		Recipients: []string{"updated@example.com"},
+		To:            "updated@example.com",
 	}
 
 	bodyJSON, _ := json.Marshal(reqBody)
@@ -416,10 +422,10 @@ func TestUpdateAutomation_Success(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusOK, rec.Code)
 
-	var response domain.AutomationRule
+	var response domain.Followup
 	err = json.Unmarshal(rec.Body.Bytes(), &response)
 	assert.NoError(t, err)
-	assert.Equal(t, "updated@example.com", response.Recipients[0])
+	assert.Equal(t, "updated@example.com", response.To)
 
 	mockService.AssertExpectations(t)
 }
@@ -427,10 +433,10 @@ func TestUpdateAutomation_Success(t *testing.T) {
 func TestDeleteAutomation_Success(t *testing.T) {
 	// Setup
 	e := echo.New()
-	mockService := new(MockAutomationService)
+	mockService := new(MockFollowupService)
 	handler := NewAutomationHandler(mockService)
 
-	existingRule := createTestAutomationRule()
+	existingRule := createTestFollowup()
 	mockService.On("GetRule", mock.Anything, "test-automation-id").Return(existingRule, nil)
 	mockService.On("DeleteRule", mock.Anything, "test-automation-id").Return(nil)
 
@@ -450,7 +456,7 @@ func TestDeleteAutomation_Success(t *testing.T) {
 func TestDeleteAutomation_NotFound(t *testing.T) {
 	// Setup
 	e := echo.New()
-	mockService := new(MockAutomationService)
+	mockService := new(MockFollowupService)
 	handler := NewAutomationHandler(mockService)
 
 	mockService.On("GetRule", mock.Anything, "non-existent-id").Return(nil, errors.New("automation rule not found"))
@@ -468,7 +474,7 @@ func TestDeleteAutomation_NotFound(t *testing.T) {
 	var response ErrorResponse
 	err = json.Unmarshal(rec.Body.Bytes(), &response)
 	assert.NoError(t, err)
-	assert.Equal(t, "AUTOMATION_NOT_FOUND", response.Error.Code)
+	assert.Equal(t, "FOLLOWUP_NOT_FOUND", response.Error.Code)
 
 	mockService.AssertExpectations(t)
 }
@@ -476,10 +482,10 @@ func TestDeleteAutomation_NotFound(t *testing.T) {
 func TestTriggerAutomation_Success(t *testing.T) {
 	// Setup
 	e := echo.New()
-	mockService := new(MockAutomationService)
+	mockService := new(MockFollowupService)
 	handler := NewAutomationHandler(mockService)
 
-	existingRule := createTestAutomationRule()
+	existingRule := createTestFollowup()
 	mockService.On("GetRule", mock.Anything, "test-automation-id").Return(existingRule, nil)
 	mockService.On("TriggerRule", mock.Anything, "test-automation-id").Return(nil)
 
@@ -496,7 +502,7 @@ func TestTriggerAutomation_Success(t *testing.T) {
 	var response map[string]interface{}
 	err = json.Unmarshal(rec.Body.Bytes(), &response)
 	assert.NoError(t, err)
-	assert.Equal(t, "automation rule triggered successfully", response["message"])
+	assert.Equal(t, "followup rule triggered successfully", response["message"])
 	assert.Equal(t, "test-automation-id", response["automation_id"])
 
 	mockService.AssertExpectations(t)
@@ -505,7 +511,7 @@ func TestTriggerAutomation_Success(t *testing.T) {
 func TestTriggerAutomation_NotFound(t *testing.T) {
 	// Setup
 	e := echo.New()
-	mockService := new(MockAutomationService)
+	mockService := new(MockFollowupService)
 	handler := NewAutomationHandler(mockService)
 
 	mockService.On("GetRule", mock.Anything, "non-existent-id").Return(nil, errors.New("automation rule not found"))
@@ -523,7 +529,7 @@ func TestTriggerAutomation_NotFound(t *testing.T) {
 	var response ErrorResponse
 	err = json.Unmarshal(rec.Body.Bytes(), &response)
 	assert.NoError(t, err)
-	assert.Equal(t, "AUTOMATION_NOT_FOUND", response.Error.Code)
+	assert.Equal(t, "FOLLOWUP_NOT_FOUND", response.Error.Code)
 
 	mockService.AssertExpectations(t)
 }

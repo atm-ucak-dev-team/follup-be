@@ -17,7 +17,7 @@ import (
 // Poller handles background IMAP polling for email replies
 type Poller struct {
 	emailService    service.EmailService
-	automationRepo  repository.AutomationRuleRepository
+	followupRepo    repository.FollowupRepository
 	emailThreadRepo repository.EmailThreadRepository
 	interval        time.Duration
 	stopChan        chan struct{}
@@ -27,13 +27,13 @@ type Poller struct {
 // NewPoller creates a new Poller instance
 func NewPoller(
 	emailService service.EmailService,
-	automationRepo repository.AutomationRuleRepository,
+	followupRepo repository.FollowupRepository,
 	emailThreadRepo repository.EmailThreadRepository,
 	interval time.Duration,
 ) *Poller {
 	return &Poller{
 		emailService:    emailService,
-		automationRepo:  automationRepo,
+		followupRepo:    followupRepo,
 		emailThreadRepo: emailThreadRepo,
 		interval:        interval,
 		stopChan:        make(chan struct{}),
@@ -95,22 +95,22 @@ func (p *Poller) pollOnce() {
 
 	ctx := context.Background()
 
-	// Get all active automation rules
-	activeRules, err := p.automationRepo.GetActiveRules(ctx)
+	// Get all active followup rules
+	activeRules, err := p.followupRepo.GetActiveRules(ctx)
 	if err != nil {
 		log.Printf("Failed to get active rules: %v", err)
 		return
 	}
 
 	if len(activeRules) == 0 {
-		log.Println("No active automations to poll")
+		log.Println("No active followups to poll")
 		return
 	}
 
-	log.Printf("Found %d active automations to check", len(activeRules))
+	log.Printf("Found %d active followups to check", len(activeRules))
 
 	// Group rules by user to avoid duplicate IMAP connections per user
-	userRules := make(map[string][]*domain.AutomationRule)
+	userRules := make(map[string][]*domain.Followup)
 	for _, rule := range activeRules {
 		userRules[rule.UserID] = append(userRules[rule.UserID], rule)
 	}
@@ -126,7 +126,7 @@ func (p *Poller) pollOnce() {
 }
 
 // pollUser polls IMAP for a single user
-func (p *Poller) pollUser(ctx context.Context, userID string, rules []*domain.AutomationRule) error {
+func (p *Poller) pollUser(ctx context.Context, userID string, rules []*domain.Followup) error {
 	// Get email credentials for the user
 	cred, err := p.emailService.GetCredential(ctx, userID)
 	if err != nil {

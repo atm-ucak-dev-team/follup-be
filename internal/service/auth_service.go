@@ -17,7 +17,7 @@ import (
 type AuthServiceImpl struct {
 	userRepo       repository.UserRepository
 	oauthRepo      repository.OAuthTokenRepository
-	automationRepo repository.AutomationRuleRepository
+	followupRepo repository.FollowupRepository
 	config         *domain.Config
 	httpClient     *http.Client
 }
@@ -26,13 +26,13 @@ type AuthServiceImpl struct {
 func NewAuthService(
 	userRepo repository.UserRepository,
 	oauthRepo repository.OAuthTokenRepository,
-	automationRepo repository.AutomationRuleRepository,
+	followupRepo repository.FollowupRepository,
 	config *domain.Config,
 ) AuthService {
 	return &AuthServiceImpl{
 		userRepo:       userRepo,
 		oauthRepo:      oauthRepo,
-		automationRepo: automationRepo,
+		followupRepo: followupRepo,
 		config:         config,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
@@ -341,18 +341,18 @@ func (s *AuthServiceImpl) getOrCreateUser(ctx context.Context, jiraUser *jiraUse
 	return newUser, nil
 }
 
-// pauseUserAutomations pauses all active automations for a user
+// pauseUserAutomations pauses all active followups for a user
 func (s *AuthServiceImpl) pauseUserAutomations(ctx context.Context, userID string) error {
-	rules, err := s.automationRepo.GetByUserID(ctx, userID)
+	rules, err := s.followupRepo.GetByUserID(ctx, userID)
 	if err != nil {
-		return fmt.Errorf("failed to get user automations: %w", err)
+		return fmt.Errorf("failed to get user followups: %w", err)
 	}
 
 	for _, rule := range rules {
-		if rule.Status == domain.AutomationStatusActive {
-			rule.Status = domain.AutomationStatusPaused
-			if err := s.automationRepo.Update(ctx, rule); err != nil {
-				return fmt.Errorf("failed to pause automation %s: %w", rule.ID, err)
+		if rule.Status == domain.FollowupStatusOngoing {
+			rule.Status = domain.FollowupStatusStopped
+			if err := s.followupRepo.Update(ctx, rule); err != nil {
+				return fmt.Errorf("failed to pause followup %s: %w", rule.ID, err)
 			}
 		}
 	}

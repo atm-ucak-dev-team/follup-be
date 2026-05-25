@@ -18,7 +18,9 @@ import (
 	"github.com/atm-ucak/follup/internal/email"
 	"github.com/atm-ucak/follup/internal/handler"
 	"github.com/atm-ucak/follup/internal/infra"
+	"github.com/atm-ucak/follup/internal/repository"
 	"github.com/atm-ucak/follup/internal/repository/dragonfly"
+	"github.com/atm-ucak/follup/internal/repository/postgres"
 	"github.com/atm-ucak/follup/internal/service"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -105,26 +107,45 @@ func main() {
 	if postgresPool != nil {
 		log.Println("Connected to PostgreSQL")
 		defer infra.ClosePostgresPool(postgresPool)
+
+		// Run database migrations
+		if err := infra.RunMigrations(cfg.PostgresDSN); err != nil {
+			log.Fatalf("Failed to run database migrations: %v", err)
+		}
 	} else {
 		log.Println("PostgreSQL not available (optional)")
 	}
 
-	// 3. Init repositories (dragonfly implementations)
-	userRepo := dragonfly.NewUserRepository(dragonflyClient)
-	automationRepo := dragonfly.NewAutomationRepository(dragonflyClient)
+	// 3. Init repositories
+	var userRepo repository.UserRepository
+	var followupRepo repository.FollowupRepository
+	var emailCredentialRepo repository.EmailCredentialRepository
+	var oauthTokenRepo repository.OAuthTokenRepository
+	var emailThreadRepo repository.EmailThreadRepository
 
-	// Separate repository implementations for each interface
-	emailCredentialRepo := dragonfly.NewEmailCredentialRepository(dragonflyClient)
-	oauthTokenRepo := dragonfly.NewOAuthTokenRepository(dragonflyClient)
-	emailThreadRepo := dragonfly.NewEmailThreadRepository(dragonflyClient)
-
-	log.Println("Initialized Dragonfly repositories")
+	if postgresPool != nil {
+		// Prefer PostgreSQL implementations
+		userRepo = postgres.NewUserRepository(postgresPool)
+		followupRepo = postgres.NewFollowupRepository(postgresPool)
+		emailCredentialRepo = postgres.NewEmailCredentialRepository(postgresPool)
+		oauthTokenRepo = postgres.NewOAuthTokenRepository(postgresPool)
+		emailThreadRepo = postgres.NewEmailThreadRepository(postgresPool)
+		log.Println("Initialized PostgreSQL repositories")
+	} else {
+		// Fallback to DragonflyDB/Redis implementations
+		userRepo = dragonfly.NewUserRepository(dragonflyClient)
+		followupRepo = dragonfly.NewFollowupRepository(dragonflyClient)
+		emailCredentialRepo = dragonfly.NewEmailCredentialRepository(dragonflyClient)
+		oauthTokenRepo = dragonfly.NewOAuthTokenRepository(dragonflyClient)
+		emailThreadRepo = dragonfly.NewEmailThreadRepository(dragonflyClient)
+		log.Println("Initialized Dragonfly repositories")
+	}
 
 	// 4. Init services (inject repos)
-	authService := service.NewAuthService(userRepo, oauthTokenRepo, automationRepo, cfg)
+	authService := service.NewAuthService(userRepo, oauthTokenRepo, followupRepo, cfg)
 	jiraService := service.NewJiraService(cfg)
-	emailService := service.NewEmailService(emailCredentialRepo, automationRepo, emailThreadRepo, cfg)
-	automationService := service.NewAutomationService(automationRepo, emailService)
+	emailService := service.NewEmailService(emailCredentialRepo, followupRepo, emailThreadRepo, cfg)
+	automationService := service.NewAutomationService(followupRepo, emailService)
 
 	log.Println("Initialized services")
 
@@ -137,7 +158,7 @@ func main() {
 	log.Println("Initialized handlers")
 
 	// 6. Init cron scheduler (inject services)
-	scheduler := cron.NewScheduler(automationRepo, emailService)
+	scheduler := cron.NewScheduler(followupRepo, emailService)
 	if err := scheduler.Start(); err != nil {
 		log.Fatal("Failed to start cron scheduler:", err)
 	}
@@ -145,7 +166,7 @@ func main() {
 
 	// 7. Init IMAP poller goroutine
 	pollInterval := time.Duration(cfg.IMAPPollIntervalSeconds) * time.Second
-	poller := email.NewPoller(emailService, automationRepo, emailThreadRepo, pollInterval)
+	poller := email.NewPoller(emailService, followupRepo, emailThreadRepo, pollInterval)
 	poller.Start()
 	log.Printf("Started IMAP poller with %v interval", pollInterval)
 

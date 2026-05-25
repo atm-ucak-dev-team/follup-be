@@ -11,46 +11,46 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// MockAutomationRuleRepository is a mock for testing
-type MockAutomationRuleRepository struct {
+// MockFollowupRepository is a mock for testing
+type MockFollowupRepository struct {
 	mock.Mock
 }
 
-func (m *MockAutomationRuleRepository) Create(ctx context.Context, rule *domain.AutomationRule) error {
+func (m *MockFollowupRepository) Create(ctx context.Context, rule *domain.Followup) error {
 	args := m.Called(ctx, rule)
 	return args.Error(0)
 }
 
-func (m *MockAutomationRuleRepository) GetByID(ctx context.Context, id string) (*domain.AutomationRule, error) {
+func (m *MockFollowupRepository) GetByID(ctx context.Context, id string) (*domain.Followup, error) {
 	args := m.Called(ctx, id)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.AutomationRule), args.Error(1)
+	return args.Get(0).(*domain.Followup), args.Error(1)
 }
 
-func (m *MockAutomationRuleRepository) GetByUserID(ctx context.Context, userID string) ([]*domain.AutomationRule, error) {
+func (m *MockFollowupRepository) GetByUserID(ctx context.Context, userID string) ([]*domain.Followup, error) {
 	args := m.Called(ctx, userID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.AutomationRule), args.Error(1)
+	return args.Get(0).([]*domain.Followup), args.Error(1)
 }
 
-func (m *MockAutomationRuleRepository) GetActiveRules(ctx context.Context) ([]*domain.AutomationRule, error) {
+func (m *MockFollowupRepository) GetActiveRules(ctx context.Context) ([]*domain.Followup, error) {
 	args := m.Called(ctx)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.AutomationRule), args.Error(1)
+	return args.Get(0).([]*domain.Followup), args.Error(1)
 }
 
-func (m *MockAutomationRuleRepository) Update(ctx context.Context, rule *domain.AutomationRule) error {
+func (m *MockFollowupRepository) Update(ctx context.Context, rule *domain.Followup) error {
 	args := m.Called(ctx, rule)
 	return args.Error(0)
 }
 
-func (m *MockAutomationRuleRepository) Delete(ctx context.Context, id string) error {
+func (m *MockFollowupRepository) Delete(ctx context.Context, id string) error {
 	args := m.Called(ctx, id)
 	return args.Error(0)
 }
@@ -105,20 +105,20 @@ func (m *MockEmailService) PollInbox(ctx context.Context) error {
 
 // TestScheduler_Start_LoadsActiveRules tests that the scheduler loads active rules on startup
 func TestScheduler_Start_LoadsActiveRules(t *testing.T) {
-	mockRepo := new(MockAutomationRuleRepository)
+	mockRepo := new(MockFollowupRepository)
 	mockEmailService := new(MockEmailService)
 
 	// Create test automation rules
 	now := time.Now()
-	activeRules := []*domain.AutomationRule{
+	activeRules := []*domain.Followup{
 		{
 			ID:            "rule-1",
 			UserID:        "user-1",
 			JiraTicketID:  "ticket-1",
 			JiraTicketKey: "PROJ-123",
-			Recipients:    []string{"test@example.com"},
-			CronSchedule:  "0 9 * * 1", // Every Monday at 9 AM
-			Status:        domain.AutomationStatusActive,
+			To:            "test@example.com",
+			Frequency:  "0 9 * * 1", // Every Monday at 9 AM
+			Status:        domain.FollowupStatusOngoing,
 			CreatedAt:     now,
 		},
 		{
@@ -126,9 +126,9 @@ func TestScheduler_Start_LoadsActiveRules(t *testing.T) {
 			UserID:        "user-2",
 			JiraTicketID:  "ticket-2",
 			JiraTicketKey: "PROJ-456",
-			Recipients:    []string{"test2@example.com"},
-			CronSchedule:  "0 */2 * * *", // Every 2 hours
-			Status:        domain.AutomationStatusActive,
+			To:            "test@example.com",
+			Frequency:  "0 */2 * * *", // Every 2 hours
+			Status:        domain.FollowupStatusOngoing,
 			CreatedAt:     now,
 		},
 	}
@@ -155,19 +155,19 @@ func TestScheduler_Start_LoadsActiveRules(t *testing.T) {
 
 // TestScheduler_AddRule_Success tests adding a rule successfully
 func TestScheduler_AddRule_Success(t *testing.T) {
-	mockRepo := new(MockAutomationRuleRepository)
+	mockRepo := new(MockFollowupRepository)
 	mockEmailService := new(MockEmailService)
 
 	scheduler := NewScheduler(mockRepo, mockEmailService)
 
-	rule := domain.AutomationRule{
+	rule := domain.Followup{
 		ID:            "rule-1",
 		UserID:        "user-1",
 		JiraTicketID:  "ticket-1",
 		JiraTicketKey: "PROJ-123",
-		Recipients:    []string{"test@example.com"},
-		CronSchedule:  "0 9 * * *", // Daily at 9 AM
-		Status:        domain.AutomationStatusActive,
+		To:            "test@example.com",
+		Frequency:  "0 9 * * *", // Daily at 9 AM
+		Status:        domain.FollowupStatusOngoing,
 	}
 
 	// Add rule
@@ -183,25 +183,25 @@ func TestScheduler_AddRule_Success(t *testing.T) {
 
 // TestScheduler_AddRule_InvalidCron tests adding a rule with invalid cron expression
 func TestScheduler_AddRule_InvalidCron(t *testing.T) {
-	mockRepo := new(MockAutomationRuleRepository)
+	mockRepo := new(MockFollowupRepository)
 	mockEmailService := new(MockEmailService)
 
 	scheduler := NewScheduler(mockRepo, mockEmailService)
 
-	rule := domain.AutomationRule{
+	rule := domain.Followup{
 		ID:            "rule-1",
 		UserID:        "user-1",
 		JiraTicketID:  "ticket-1",
 		JiraTicketKey: "PROJ-123",
-		Recipients:    []string{"test@example.com"},
-		CronSchedule:  "invalid-cron", // Invalid cron expression
-		Status:        domain.AutomationStatusActive,
+		To:            "test@example.com",
+		Frequency:  "invalid-cron", // Invalid cron expression
+		Status:        domain.FollowupStatusOngoing,
 	}
 
 	// Try to add rule with invalid cron
 	err := scheduler.AddRule(rule)
 	assert.Error(t, err, "AddRule should return an error for invalid cron expression")
-	assert.Contains(t, err.Error(), "invalid cron expression", "Error should mention invalid cron")
+	assert.Contains(t, err.Error(), "failed to add cron job", "Error should mention invalid cron")
 
 	// Verify rule was not added
 	assert.Equal(t, 0, scheduler.GetScheduledRuleCount(), "Should have 0 scheduled rules")
@@ -212,19 +212,19 @@ func TestScheduler_AddRule_InvalidCron(t *testing.T) {
 
 // TestScheduler_AddRule_EmptyCron tests adding a rule with empty cron expression
 func TestScheduler_AddRule_EmptyCron(t *testing.T) {
-	mockRepo := new(MockAutomationRuleRepository)
+	mockRepo := new(MockFollowupRepository)
 	mockEmailService := new(MockEmailService)
 
 	scheduler := NewScheduler(mockRepo, mockEmailService)
 
-	rule := domain.AutomationRule{
+	rule := domain.Followup{
 		ID:            "rule-1",
 		UserID:        "user-1",
 		JiraTicketID:  "ticket-1",
 		JiraTicketKey: "PROJ-123",
-		Recipients:    []string{"test@example.com"},
-		CronSchedule:  "", // Empty cron expression
-		Status:        domain.AutomationStatusActive,
+		To:            "test@example.com",
+		Frequency:  "", // Empty cron expression
+		Status:        domain.FollowupStatusOngoing,
 	}
 
 	// Try to add rule with empty cron
@@ -237,19 +237,19 @@ func TestScheduler_AddRule_EmptyCron(t *testing.T) {
 
 // TestScheduler_RemoveRule_Success tests removing a rule successfully
 func TestScheduler_RemoveRule_Success(t *testing.T) {
-	mockRepo := new(MockAutomationRuleRepository)
+	mockRepo := new(MockFollowupRepository)
 	mockEmailService := new(MockEmailService)
 
 	scheduler := NewScheduler(mockRepo, mockEmailService)
 
-	rule := domain.AutomationRule{
+	rule := domain.Followup{
 		ID:            "rule-1",
 		UserID:        "user-1",
 		JiraTicketID:  "ticket-1",
 		JiraTicketKey: "PROJ-123",
-		Recipients:    []string{"test@example.com"},
-		CronSchedule:  "0 9 * * *",
-		Status:        domain.AutomationStatusActive,
+		To:            "test@example.com",
+		Frequency:  "0 9 * * *",
+		Status:        domain.FollowupStatusOngoing,
 	}
 
 	// Add rule first
@@ -271,7 +271,7 @@ func TestScheduler_RemoveRule_Success(t *testing.T) {
 
 // TestScheduler_RemoveRule_NonExistent tests removing a rule that doesn't exist
 func TestScheduler_RemoveRule_NonExistent(t *testing.T) {
-	mockRepo := new(MockAutomationRuleRepository)
+	mockRepo := new(MockFollowupRepository)
 	mockEmailService := new(MockEmailService)
 
 	scheduler := NewScheduler(mockRepo, mockEmailService)
@@ -288,19 +288,19 @@ func TestScheduler_RemoveRule_NonExistent(t *testing.T) {
 
 // TestScheduler_JobExecution_Success tests job execution
 func TestScheduler_JobExecution_Success(t *testing.T) {
-	mockRepo := new(MockAutomationRuleRepository)
+	mockRepo := new(MockFollowupRepository)
 	mockEmailService := new(MockEmailService)
 
 	scheduler := NewScheduler(mockRepo, mockEmailService)
 
-	rule := domain.AutomationRule{
+	rule := domain.Followup{
 		ID:            "rule-1",
 		UserID:        "user-1",
 		JiraTicketID:  "ticket-1",
 		JiraTicketKey: "PROJ-123",
-		Recipients:    []string{"test@example.com"},
-		CronSchedule:  "* * * * *", // Every minute for testing
-		Status:        domain.AutomationStatusActive,
+		To:            "test@example.com",
+		Frequency:  "* * * * *", // Every minute for testing
+		Status:        domain.FollowupStatusOngoing,
 	}
 
 	// Set up mock expectation for email sending
@@ -325,19 +325,19 @@ func TestScheduler_JobExecution_Success(t *testing.T) {
 
 // TestScheduler_RuleStatusChange_SyncsCorrectly tests rule status changes sync correctly
 func TestScheduler_RuleStatusChange_SyncsCorrectly(t *testing.T) {
-	mockRepo := new(MockAutomationRuleRepository)
+	mockRepo := new(MockFollowupRepository)
 	mockEmailService := new(MockEmailService)
 
 	scheduler := NewScheduler(mockRepo, mockEmailService)
 
-	rule := domain.AutomationRule{
+	rule := domain.Followup{
 		ID:            "rule-1",
 		UserID:        "user-1",
 		JiraTicketID:  "ticket-1",
 		JiraTicketKey: "PROJ-123",
-		Recipients:    []string{"test@example.com"},
-		CronSchedule:  "0 9 * * *",
-		Status:        domain.AutomationStatusActive,
+		To:            "test@example.com",
+		Frequency:  "0 9 * * *",
+		Status:        domain.FollowupStatusOngoing,
 	}
 
 	// Add active rule
@@ -366,7 +366,7 @@ func TestScheduler_RuleStatusChange_SyncsCorrectly(t *testing.T) {
 
 // TestScheduler_Start_RepositoryError tests error handling when repository fails on start
 func TestScheduler_Start_RepositoryError(t *testing.T) {
-	mockRepo := new(MockAutomationRuleRepository)
+	mockRepo := new(MockFollowupRepository)
 	mockEmailService := new(MockEmailService)
 
 	// Set up mock to return error
@@ -377,7 +377,7 @@ func TestScheduler_Start_RepositoryError(t *testing.T) {
 	// Start should return error
 	err := scheduler.Start()
 	assert.Error(t, err, "Start should return error when repository fails")
-	assert.Contains(t, err.Error(), "failed to load active automation rules", "Error should mention loading rules")
+	assert.Contains(t, err.Error(), "failed to load active followup rules", "Error should mention loading rules")
 
 	// Clean up
 	scheduler.Stop()
@@ -385,19 +385,19 @@ func TestScheduler_Start_RepositoryError(t *testing.T) {
 
 // TestScheduler_AddRule_DuplicateRule tests adding a rule that already exists
 func TestScheduler_AddRule_DuplicateRule(t *testing.T) {
-	mockRepo := new(MockAutomationRuleRepository)
+	mockRepo := new(MockFollowupRepository)
 	mockEmailService := new(MockEmailService)
 
 	scheduler := NewScheduler(mockRepo, mockEmailService)
 
-	rule := domain.AutomationRule{
+	rule := domain.Followup{
 		ID:            "rule-1",
 		UserID:        "user-1",
 		JiraTicketID:  "ticket-1",
 		JiraTicketKey: "PROJ-123",
-		Recipients:    []string{"test@example.com"},
-		CronSchedule:  "0 9 * * *",
-		Status:        domain.AutomationStatusActive,
+		To:            "test@example.com",
+		Frequency:  "0 9 * * *",
+		Status:        domain.FollowupStatusOngoing,
 	}
 
 	// Add rule first time
@@ -418,20 +418,20 @@ func TestScheduler_AddRule_DuplicateRule(t *testing.T) {
 
 // TestScheduler_GracefulShutdown tests graceful shutdown behavior
 func TestScheduler_GracefulShutdown(t *testing.T) {
-	mockRepo := new(MockAutomationRuleRepository)
+	mockRepo := new(MockFollowupRepository)
 	mockEmailService := new(MockEmailService)
 
 	// Create test automation rules
 	now := time.Now()
-	activeRules := []*domain.AutomationRule{
+	activeRules := []*domain.Followup{
 		{
 			ID:            "rule-1",
 			UserID:        "user-1",
 			JiraTicketID:  "ticket-1",
 			JiraTicketKey: "PROJ-123",
-			Recipients:    []string{"test@example.com"},
-			CronSchedule:  "0 9 * * *",
-			Status:        domain.AutomationStatusActive,
+			To:            "test@example.com",
+			Frequency:  "0 9 * * *",
+			Status:        domain.FollowupStatusOngoing,
 			CreatedAt:     now,
 		},
 	}

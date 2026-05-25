@@ -61,42 +61,31 @@ func (m *mockEmailService) PollInbox(ctx context.Context) error {
 	return nil
 }
 
-type mockAutomationRepository struct {
-	getActiveRulesFunc func(ctx interface{}) ([]*domain.AutomationRule, error)
+type mockFollowupRepository struct {
+	getActiveRulesFunc func(ctx interface{}) ([]*domain.Followup, error)
 }
 
-func (m *mockAutomationRepository) Create(ctx context.Context, rule *domain.AutomationRule) error {
+func (m *mockFollowupRepository) Create(ctx context.Context, rule *domain.Followup) error {
 	return nil
 }
 
-func (m *mockAutomationRepository) GetByID(ctx context.Context, id string) (*domain.AutomationRule, error) {
+func (m *mockFollowupRepository) GetByID(ctx context.Context, id string) (*domain.Followup, error) {
 	return nil, nil
 }
 
-func (m *mockAutomationRepository) GetByUserID(ctx context.Context, userID string) ([]*domain.AutomationRule, error) {
+func (m *mockFollowupRepository) GetByUserID(ctx context.Context, userID string) ([]*domain.Followup, error) {
 	return nil, nil
 }
 
-func (m *mockAutomationRepository) GetActiveRules(ctx context.Context) ([]*domain.AutomationRule, error) {
-	if m.getActiveRulesFunc != nil {
-		return m.getActiveRulesFunc(ctx)
-	}
-	return []*domain.AutomationRule{
-		{
-			ID:           "automation-1",
-			UserID:       "user-1",
-			JiraTicketID: "ticket-1",
-			Status:       domain.AutomationStatusActive,
-			CreatedAt:    time.Now(),
-		},
-	}, nil
+func (m *mockFollowupRepository) GetActiveRules(ctx context.Context) ([]*domain.Followup, error) {
+	return nil, nil
 }
 
-func (m *mockAutomationRepository) Update(ctx context.Context, rule *domain.AutomationRule) error {
+func (m *mockFollowupRepository) Update(ctx context.Context, rule *domain.Followup) error {
 	return nil
 }
 
-func (m *mockAutomationRepository) Delete(ctx context.Context, id string) error {
+func (m *mockFollowupRepository) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
@@ -138,9 +127,9 @@ func (m *mockEmailThreadRepository) Delete(ctx context.Context, id string) error
 // TestPoller_StartAndStop tests basic poller lifecycle
 func TestPoller_StartAndStop(t *testing.T) {
 	mockEmail := &mockEmailService{}
-	mockAutomation := &mockAutomationRepository{
-		getActiveRulesFunc: func(ctx interface{}) ([]*domain.AutomationRule, error) {
-			return []*domain.AutomationRule{}, nil // No active rules
+	mockAutomation := &mockFollowupRepository{
+		getActiveRulesFunc: func(ctx interface{}) ([]*domain.Followup, error) {
+			return []*domain.Followup{}, nil // No active rules
 		},
 	}
 	mockThread := &mockEmailThreadRepository{}
@@ -159,9 +148,9 @@ func TestPoller_StartAndStop(t *testing.T) {
 // TestPoller_StartWhenAlreadyRunning tests starting an already running poller
 func TestPoller_StartWhenAlreadyRunning(t *testing.T) {
 	mockEmail := &mockEmailService{}
-	mockAutomation := &mockAutomationRepository{
-		getActiveRulesFunc: func(ctx interface{}) ([]*domain.AutomationRule, error) {
-			return []*domain.AutomationRule{}, nil
+	mockAutomation := &mockFollowupRepository{
+		getActiveRulesFunc: func(ctx interface{}) ([]*domain.Followup, error) {
+			return []*domain.Followup{}, nil
 		},
 	}
 	mockThread := &mockEmailThreadRepository{}
@@ -185,7 +174,7 @@ func TestPoller_StartWhenAlreadyRunning(t *testing.T) {
 // TestPoller_StopWhenNotRunning tests stopping a poller that's not running
 func TestPoller_StopWhenNotRunning(t *testing.T) {
 	mockEmail := &mockEmailService{}
-	mockAutomation := &mockAutomationRepository{}
+	mockAutomation := &mockFollowupRepository{}
 	mockThread := &mockEmailThreadRepository{}
 
 	poller := NewPoller(mockEmail, mockAutomation, mockThread, 100*time.Millisecond)
@@ -198,9 +187,9 @@ func TestPoller_StopWhenNotRunning(t *testing.T) {
 // TestPoller_PollOnce_NoActiveAutomations tests polling with no active automations
 func TestPoller_PollOnce_NoActiveAutomations(t *testing.T) {
 	mockEmail := &mockEmailService{}
-	mockAutomation := &mockAutomationRepository{
-		getActiveRulesFunc: func(ctx interface{}) ([]*domain.AutomationRule, error) {
-			return []*domain.AutomationRule{}, nil // No active rules
+	mockAutomation := &mockFollowupRepository{
+		getActiveRulesFunc: func(ctx interface{}) ([]*domain.Followup, error) {
+			return []*domain.Followup{}, nil // No active rules
 		},
 	}
 	mockThread := &mockEmailThreadRepository{}
@@ -214,8 +203,8 @@ func TestPoller_PollOnce_NoActiveAutomations(t *testing.T) {
 // TestPoller_PollOnce_GetActiveRulesFails tests polling when getting active rules fails
 func TestPoller_PollOnce_GetActiveRulesFails(t *testing.T) {
 	mockEmail := &mockEmailService{}
-	mockAutomation := &mockAutomationRepository{
-		getActiveRulesFunc: func(ctx interface{}) ([]*domain.AutomationRule, error) {
+	mockAutomation := &mockFollowupRepository{
+		getActiveRulesFunc: func(ctx interface{}) ([]*domain.Followup, error) {
 			return nil, errors.New("database connection failed")
 		},
 	}
@@ -234,14 +223,14 @@ func TestPoller_PollOnce_GetCredentialFails(t *testing.T) {
 			return nil, errors.New("user not found")
 		},
 	}
-	mockAutomation := &mockAutomationRepository{
-		getActiveRulesFunc: func(ctx interface{}) ([]*domain.AutomationRule, error) {
-			return []*domain.AutomationRule{
+	mockAutomation := &mockFollowupRepository{
+		getActiveRulesFunc: func(ctx interface{}) ([]*domain.Followup, error) {
+			return []*domain.Followup{
 				{
 					ID:           "automation-1",
 					UserID:       "user-1",
 					JiraTicketID: "ticket-1",
-					Status:       domain.AutomationStatusActive,
+					Status:       domain.FollowupStatusOngoing,
 					CreatedAt:    time.Now(),
 				},
 			}, nil
@@ -271,14 +260,14 @@ func TestPoller_PollOnce_DecryptPasswordFails(t *testing.T) {
 			return "", errors.New("decryption failed")
 		},
 	}
-	mockAutomation := &mockAutomationRepository{
-		getActiveRulesFunc: func(ctx interface{}) ([]*domain.AutomationRule, error) {
-			return []*domain.AutomationRule{
+	mockAutomation := &mockFollowupRepository{
+		getActiveRulesFunc: func(ctx interface{}) ([]*domain.Followup, error) {
+			return []*domain.Followup{
 				{
 					ID:           "automation-1",
 					UserID:       "user-1",
 					JiraTicketID: "ticket-1",
-					Status:       domain.AutomationStatusActive,
+					Status:       domain.FollowupStatusOngoing,
 					CreatedAt:    time.Now(),
 				},
 			}, nil
@@ -295,14 +284,14 @@ func TestPoller_PollOnce_DecryptPasswordFails(t *testing.T) {
 // TestPoller_PollOnce_ThreadMatching tests the thread matching logic
 func TestPoller_PollOnce_ThreadMatching(t *testing.T) {
 	mockEmail := &mockEmailService{}
-	mockAutomation := &mockAutomationRepository{
-		getActiveRulesFunc: func(ctx interface{}) ([]*domain.AutomationRule, error) {
-			return []*domain.AutomationRule{
+	mockAutomation := &mockFollowupRepository{
+		getActiveRulesFunc: func(ctx interface{}) ([]*domain.Followup, error) {
+			return []*domain.Followup{
 				{
 					ID:           "automation-1",
 					UserID:       "user-1",
 					JiraTicketID: "ticket-1",
-					Status:       domain.AutomationStatusActive,
+					Status:       domain.FollowupStatusOngoing,
 					CreatedAt:    time.Now(),
 				},
 			}, nil
@@ -334,28 +323,28 @@ func TestPoller_MultipleUsersWithActiveAutomations(t *testing.T) {
 			}, nil
 		},
 	}
-	mockAutomation := &mockAutomationRepository{
-		getActiveRulesFunc: func(ctx interface{}) ([]*domain.AutomationRule, error) {
-			return []*domain.AutomationRule{
+	mockAutomation := &mockFollowupRepository{
+		getActiveRulesFunc: func(ctx interface{}) ([]*domain.Followup, error) {
+			return []*domain.Followup{
 				{
 					ID:           "automation-1",
 					UserID:       "user-1",
 					JiraTicketID: "ticket-1",
-					Status:       domain.AutomationStatusActive,
+					Status:       domain.FollowupStatusOngoing,
 					CreatedAt:    time.Now(),
 				},
 				{
 					ID:           "automation-2",
 					UserID:       "user-2",
 					JiraTicketID: "ticket-2",
-					Status:       domain.AutomationStatusActive,
+					Status:       domain.FollowupStatusOngoing,
 					CreatedAt:    time.Now(),
 				},
 				{
 					ID:           "automation-3",
 					UserID:       "user-1", // Same user as automation-1
 					JiraTicketID: "ticket-3",
-					Status:       domain.AutomationStatusActive,
+					Status:       domain.FollowupStatusOngoing,
 					CreatedAt:    time.Now(),
 				},
 			}, nil
@@ -372,15 +361,15 @@ func TestPoller_MultipleUsersWithActiveAutomations(t *testing.T) {
 // TestNewPoller tests poller construction
 func TestNewPoller(t *testing.T) {
 	mockEmail := &mockEmailService{}
-	mockAutomation := &mockAutomationRepository{}
+	mockFollowup := &mockFollowupRepository{}
 	mockThread := &mockEmailThreadRepository{}
 	interval := 5 * time.Minute
 
-	poller := NewPoller(mockEmail, mockAutomation, mockThread, interval)
+	poller := NewPoller(mockEmail, mockFollowup, mockThread, interval)
 
 	assert.NotNil(t, poller)
 	assert.Equal(t, mockEmail, poller.emailService)
-	assert.Equal(t, mockAutomation, poller.automationRepo)
+	assert.Equal(t, mockFollowup, poller.followupRepo)
 	assert.Equal(t, mockThread, poller.emailThreadRepo)
 	assert.Equal(t, interval, poller.interval)
 	assert.False(t, poller.running, "New poller should not be running")
@@ -390,9 +379,9 @@ func TestNewPoller(t *testing.T) {
 // TestPoller_ConcurrentStartStop tests concurrent start/stop operations
 func TestPoller_ConcurrentStartStop(t *testing.T) {
 	mockEmail := &mockEmailService{}
-	mockAutomation := &mockAutomationRepository{
-		getActiveRulesFunc: func(ctx interface{}) ([]*domain.AutomationRule, error) {
-			return []*domain.AutomationRule{}, nil
+	mockAutomation := &mockFollowupRepository{
+		getActiveRulesFunc: func(ctx interface{}) ([]*domain.Followup, error) {
+			return []*domain.Followup{}, nil
 		},
 	}
 	mockThread := &mockEmailThreadRepository{}
@@ -421,7 +410,7 @@ func TestPoller_ConcurrentStartStop(t *testing.T) {
 // TestPoller_connectIMAP tests the IMAP connection logic
 func TestPoller_connectIMAP(t *testing.T) {
 	mockEmail := &mockEmailService{}
-	mockAutomation := &mockAutomationRepository{}
+	mockAutomation := &mockFollowupRepository{}
 	mockThread := &mockEmailThreadRepository{}
 
 	poller := NewPoller(mockEmail, mockAutomation, mockThread, 100*time.Millisecond)
@@ -437,7 +426,7 @@ func TestPoller_pollUser_ErrorHandling(t *testing.T) {
 	tests := []struct {
 		name          string
 		setupEmail    func() *mockEmailService
-		setupRules    func() []*domain.AutomationRule
+		setupRules    func() []*domain.Followup
 		expectError   bool
 		errorContains string
 	}{
@@ -450,9 +439,9 @@ func TestPoller_pollUser_ErrorHandling(t *testing.T) {
 					},
 				}
 			},
-			setupRules: func() []*domain.AutomationRule {
-				return []*domain.AutomationRule{
-					{ID: "auto-1", UserID: "user-1", Status: domain.AutomationStatusActive},
+			setupRules: func() []*domain.Followup {
+				return []*domain.Followup{
+					{ID: "auto-1", UserID: "user-1", Status: domain.FollowupStatusOngoing},
 				}
 			},
 			expectError:   true,
@@ -475,9 +464,9 @@ func TestPoller_pollUser_ErrorHandling(t *testing.T) {
 					},
 				}
 			},
-			setupRules: func() []*domain.AutomationRule {
-				return []*domain.AutomationRule{
-					{ID: "auto-1", UserID: "user-1", Status: domain.AutomationStatusActive},
+			setupRules: func() []*domain.Followup {
+				return []*domain.Followup{
+					{ID: "auto-1", UserID: "user-1", Status: domain.FollowupStatusOngoing},
 				}
 			},
 			expectError:   true,
@@ -488,7 +477,7 @@ func TestPoller_pollUser_ErrorHandling(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockEmail := tt.setupEmail()
-			mockAutomation := &mockAutomationRepository{}
+			mockAutomation := &mockFollowupRepository{}
 			mockThread := &mockEmailThreadRepository{}
 
 			poller := NewPoller(mockEmail, mockAutomation, mockThread, 100*time.Millisecond)
@@ -529,7 +518,7 @@ func TestPoller_matchMessageToThread(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockEmail := &mockEmailService{}
-			mockAutomation := &mockAutomationRepository{}
+			mockAutomation := &mockFollowupRepository{}
 			mockThread := tt.setupMock()
 
 			poller := NewPoller(mockEmail, mockAutomation, mockThread, 100*time.Millisecond)
@@ -551,7 +540,7 @@ func TestPoller_matchMessageToThread(t *testing.T) {
 // TestPoller_findMatchingThread tests the thread matching algorithm
 func TestPoller_findMatchingThread(t *testing.T) {
 	mockEmail := &mockEmailService{}
-	mockAutomation := &mockAutomationRepository{}
+	mockAutomation := &mockFollowupRepository{}
 	mockThread := &mockEmailThreadRepository{}
 
 	poller := NewPoller(mockEmail, mockAutomation, mockThread, 100*time.Millisecond)
@@ -578,10 +567,10 @@ func TestPoller_MultiplePollCycles(t *testing.T) {
 			return "", errors.New("decryption fails") // Simulate decryption failure
 		},
 	}
-	mockAutomation := &mockAutomationRepository{
-		getActiveRulesFunc: func(ctx interface{}) ([]*domain.AutomationRule, error) {
-			return []*domain.AutomationRule{
-				{ID: "auto-1", UserID: "user-1", Status: domain.AutomationStatusActive},
+	mockAutomation := &mockFollowupRepository{
+		getActiveRulesFunc: func(ctx interface{}) ([]*domain.Followup, error) {
+			return []*domain.Followup{
+				{ID: "auto-1", UserID: "user-1", Status: domain.FollowupStatusOngoing},
 			}, nil
 		},
 	}
@@ -615,10 +604,10 @@ func TestPoller_PollOnce_IMAPConnectionFails(t *testing.T) {
 			return "password", nil
 		},
 	}
-	mockAutomation := &mockAutomationRepository{
-		getActiveRulesFunc: func(ctx interface{}) ([]*domain.AutomationRule, error) {
-			return []*domain.AutomationRule{
-				{ID: "auto-1", UserID: "user-1", Status: domain.AutomationStatusActive},
+	mockAutomation := &mockFollowupRepository{
+		getActiveRulesFunc: func(ctx interface{}) ([]*domain.Followup, error) {
+			return []*domain.Followup{
+				{ID: "auto-1", UserID: "user-1", Status: domain.FollowupStatusOngoing},
 			}, nil
 		},
 	}
@@ -645,10 +634,10 @@ func TestPoller_PollOnce_ThreadMatchingSuccess(t *testing.T) {
 			return "password", nil
 		},
 	}
-	mockAutomation := &mockAutomationRepository{
-		getActiveRulesFunc: func(ctx interface{}) ([]*domain.AutomationRule, error) {
-			return []*domain.AutomationRule{
-				{ID: "auto-1", UserID: "user-1", Status: domain.AutomationStatusActive},
+	mockAutomation := &mockFollowupRepository{
+		getActiveRulesFunc: func(ctx interface{}) ([]*domain.Followup, error) {
+			return []*domain.Followup{
+				{ID: "auto-1", UserID: "user-1", Status: domain.FollowupStatusOngoing},
 			}, nil
 		},
 	}
@@ -680,13 +669,13 @@ func TestPoller_GroupsUsersByUserID(t *testing.T) {
 			return "password", nil
 		},
 	}
-	mockAutomation := &mockAutomationRepository{
-		getActiveRulesFunc: func(ctx interface{}) ([]*domain.AutomationRule, error) {
-			return []*domain.AutomationRule{
-				{ID: "auto-1", UserID: "user-1", Status: domain.AutomationStatusActive},
-				{ID: "auto-2", UserID: "user-1", Status: domain.AutomationStatusActive}, // Same user
-				{ID: "auto-3", UserID: "user-2", Status: domain.AutomationStatusActive},
-				{ID: "auto-4", UserID: "user-1", Status: domain.AutomationStatusActive}, // Same user again
+	mockAutomation := &mockFollowupRepository{
+		getActiveRulesFunc: func(ctx interface{}) ([]*domain.Followup, error) {
+			return []*domain.Followup{
+				{ID: "auto-1", UserID: "user-1", Status: domain.FollowupStatusOngoing},
+				{ID: "auto-2", UserID: "user-1", Status: domain.FollowupStatusOngoing}, // Same user
+				{ID: "auto-3", UserID: "user-2", Status: domain.FollowupStatusOngoing},
+				{ID: "auto-4", UserID: "user-1", Status: domain.FollowupStatusOngoing}, // Same user again
 			}, nil
 		},
 	}
@@ -702,7 +691,7 @@ func TestPoller_GroupsUsersByUserID(t *testing.T) {
 // TestNewPoller_WithZeroInterval tests poller construction with zero interval
 func TestNewPoller_WithZeroInterval(t *testing.T) {
 	mockEmail := &mockEmailService{}
-	mockAutomation := &mockAutomationRepository{}
+	mockAutomation := &mockFollowupRepository{}
 	mockThread := &mockEmailThreadRepository{}
 
 	poller := NewPoller(mockEmail, mockAutomation, mockThread, 0)
@@ -715,9 +704,9 @@ func TestNewPoller_WithZeroInterval(t *testing.T) {
 // TestPoller_StartWithSmallInterval tests starting a poller with very small interval
 func TestPoller_StartWithSmallInterval(t *testing.T) {
 	mockEmail := &mockEmailService{}
-	mockAutomation := &mockAutomationRepository{
-		getActiveRulesFunc: func(ctx interface{}) ([]*domain.AutomationRule, error) {
-			return []*domain.AutomationRule{}, nil
+	mockAutomation := &mockFollowupRepository{
+		getActiveRulesFunc: func(ctx interface{}) ([]*domain.Followup, error) {
+			return []*domain.Followup{}, nil
 		},
 	}
 	mockThread := &mockEmailThreadRepository{}
@@ -737,9 +726,9 @@ func TestPoller_StartWithSmallInterval(t *testing.T) {
 // TestPoller_StopIsIdempotent tests that multiple Stop calls are safe
 func TestPoller_StopIsIdempotent(t *testing.T) {
 	mockEmail := &mockEmailService{}
-	mockAutomation := &mockAutomationRepository{
-		getActiveRulesFunc: func(ctx interface{}) ([]*domain.AutomationRule, error) {
-			return []*domain.AutomationRule{}, nil
+	mockAutomation := &mockFollowupRepository{
+		getActiveRulesFunc: func(ctx interface{}) ([]*domain.Followup, error) {
+			return []*domain.Followup{}, nil
 		},
 	}
 	mockThread := &mockEmailThreadRepository{}
@@ -757,7 +746,7 @@ func TestPoller_StopIsIdempotent(t *testing.T) {
 // TestPoller_findMatchingThread_PlaceholderLogic tests the placeholder thread matching logic
 func TestPoller_findMatchingThread_PlaceholderLogic(t *testing.T) {
 	mockEmail := &mockEmailService{}
-	mockAutomation := &mockAutomationRepository{}
+	mockAutomation := &mockFollowupRepository{}
 	mockThread := &mockEmailThreadRepository{}
 
 	poller := NewPoller(mockEmail, mockAutomation, mockThread, 100*time.Millisecond)
@@ -780,7 +769,7 @@ func TestPoller_findMatchingThread_PlaceholderLogic(t *testing.T) {
 // TestPoller_UpdateThreadStatus_Failure tests handling thread status update failures
 func TestPoller_UpdateThreadStatus_Failure(t *testing.T) {
 	mockEmail := &mockEmailService{}
-	mockAutomation := &mockAutomationRepository{}
+	mockAutomation := &mockFollowupRepository{}
 	mockThread := &mockEmailThreadRepository{
 		updateThreadStatusFunc: func(ctx context.Context, threadID, status string) error {
 			return errors.New("thread update failed")
@@ -810,14 +799,14 @@ func TestPoller_PollOnce_WithMultipleUsersAndAutomations(t *testing.T) {
 			return "password", nil
 		},
 	}
-	mockAutomation := &mockAutomationRepository{
-		getActiveRulesFunc: func(ctx interface{}) ([]*domain.AutomationRule, error) {
-			return []*domain.AutomationRule{
-				{ID: "auto-1", UserID: "user-1", Status: domain.AutomationStatusActive},
-				{ID: "auto-2", UserID: "user-1", Status: domain.AutomationStatusActive},
-				{ID: "auto-3", UserID: "user-2", Status: domain.AutomationStatusActive},
-				{ID: "auto-4", UserID: "user-3", Status: domain.AutomationStatusActive},
-				{ID: "auto-5", UserID: "user-1", Status: domain.AutomationStatusActive},
+	mockAutomation := &mockFollowupRepository{
+		getActiveRulesFunc: func(ctx interface{}) ([]*domain.Followup, error) {
+			return []*domain.Followup{
+				{ID: "auto-1", UserID: "user-1", Status: domain.FollowupStatusOngoing},
+				{ID: "auto-2", UserID: "user-1", Status: domain.FollowupStatusOngoing},
+				{ID: "auto-3", UserID: "user-2", Status: domain.FollowupStatusOngoing},
+				{ID: "auto-4", UserID: "user-3", Status: domain.FollowupStatusOngoing},
+				{ID: "auto-5", UserID: "user-1", Status: domain.FollowupStatusOngoing},
 			}, nil
 		},
 	}
@@ -836,10 +825,10 @@ func TestPoller_PollOnce_EmptyUserID(t *testing.T) {
 			return nil, errors.New("user ID is empty")
 		},
 	}
-	mockAutomation := &mockAutomationRepository{
-		getActiveRulesFunc: func(ctx interface{}) ([]*domain.AutomationRule, error) {
-			return []*domain.AutomationRule{
-				{ID: "auto-1", UserID: "", Status: domain.AutomationStatusActive},
+	mockAutomation := &mockFollowupRepository{
+		getActiveRulesFunc: func(ctx interface{}) ([]*domain.Followup, error) {
+			return []*domain.Followup{
+				{ID: "auto-1", UserID: "", Status: domain.FollowupStatusOngoing},
 			}, nil
 		},
 	}
@@ -854,7 +843,7 @@ func TestPoller_PollOnce_EmptyUserID(t *testing.T) {
 // TestPoller_ConnectIMAP_ValidParameters tests IMAP connection with valid parameters
 func TestPoller_ConnectIMAP_ValidParameters(t *testing.T) {
 	mockEmail := &mockEmailService{}
-	mockAutomation := &mockAutomationRepository{}
+	mockAutomation := &mockFollowupRepository{}
 	mockThread := &mockEmailThreadRepository{}
 
 	poller := NewPoller(mockEmail, mockAutomation, mockThread, 100*time.Millisecond)
@@ -884,7 +873,7 @@ func TestPoller_ConnectIMAP_ValidParameters(t *testing.T) {
 // TestNewPoller_DifferentIntervals tests poller with various intervals
 func TestNewPoller_DifferentIntervals(t *testing.T) {
 	mockEmail := &mockEmailService{}
-	mockAutomation := &mockAutomationRepository{}
+	mockAutomation := &mockFollowupRepository{}
 	mockThread := &mockEmailThreadRepository{}
 
 	intervals := []time.Duration{
@@ -919,11 +908,11 @@ func TestPoller_PollOnce_RetryLogic(t *testing.T) {
 			return "password", nil
 		},
 	}
-	mockAutomation := &mockAutomationRepository{
-		getActiveRulesFunc: func(ctx interface{}) ([]*domain.AutomationRule, error) {
-			return []*domain.AutomationRule{
-				{ID: "auto-1", UserID: "user-1", Status: domain.AutomationStatusActive},
-				{ID: "auto-2", UserID: "user-1", Status: domain.AutomationStatusActive},
+	mockAutomation := &mockFollowupRepository{
+		getActiveRulesFunc: func(ctx interface{}) ([]*domain.Followup, error) {
+			return []*domain.Followup{
+				{ID: "auto-1", UserID: "user-1", Status: domain.FollowupStatusOngoing},
+				{ID: "auto-2", UserID: "user-1", Status: domain.FollowupStatusOngoing},
 			}, nil
 		},
 	}
@@ -942,10 +931,10 @@ func TestPoller_LogMessages(t *testing.T) {
 			return nil, errors.New("test error")
 		},
 	}
-	mockAutomation := &mockAutomationRepository{
-		getActiveRulesFunc: func(ctx interface{}) ([]*domain.AutomationRule, error) {
-			return []*domain.AutomationRule{
-				{ID: "auto-1", UserID: "user-1", Status: domain.AutomationStatusActive},
+	mockAutomation := &mockFollowupRepository{
+		getActiveRulesFunc: func(ctx interface{}) ([]*domain.Followup, error) {
+			return []*domain.Followup{
+				{ID: "auto-1", UserID: "user-1", Status: domain.FollowupStatusOngoing},
 			}, nil
 		},
 	}
@@ -972,10 +961,10 @@ func TestPoller_fetchAndMatchMessages(t *testing.T) {
 			return "password", nil
 		},
 	}
-	mockAutomation := &mockAutomationRepository{
-		getActiveRulesFunc: func(ctx interface{}) ([]*domain.AutomationRule, error) {
-			return []*domain.AutomationRule{
-				{ID: "auto-1", UserID: "user-1", Status: domain.AutomationStatusActive},
+	mockAutomation := &mockFollowupRepository{
+		getActiveRulesFunc: func(ctx interface{}) ([]*domain.Followup, error) {
+			return []*domain.Followup{
+				{ID: "auto-1", UserID: "user-1", Status: domain.FollowupStatusOngoing},
 			}, nil
 		},
 	}
@@ -1005,10 +994,10 @@ func TestPoller_matchMessageToThread_NilMessage(t *testing.T) {
 			return "password", nil
 		},
 	}
-	mockAutomation := &mockAutomationRepository{
-		getActiveRulesFunc: func(ctx interface{}) ([]*domain.AutomationRule, error) {
-			return []*domain.AutomationRule{
-				{ID: "auto-1", UserID: "user-1", Status: domain.AutomationStatusActive},
+	mockAutomation := &mockFollowupRepository{
+		getActiveRulesFunc: func(ctx interface{}) ([]*domain.Followup, error) {
+			return []*domain.Followup{
+				{ID: "auto-1", UserID: "user-1", Status: domain.FollowupStatusOngoing},
 			}, nil
 		},
 	}
@@ -1025,7 +1014,7 @@ func TestPoller_pollUser_CompleteFlow(t *testing.T) {
 	tests := []struct {
 		name          string
 		emailSetup    func() *mockEmailService
-		rules         []*domain.AutomationRule
+		rules         []*domain.Followup
 		expectError   bool
 		errorContains string
 	}{
@@ -1047,8 +1036,8 @@ func TestPoller_pollUser_CompleteFlow(t *testing.T) {
 					},
 				}
 			},
-			rules: []*domain.AutomationRule{
-				{ID: "auto-1", UserID: "user-1", Status: domain.AutomationStatusActive},
+			rules: []*domain.Followup{
+				{ID: "auto-1", UserID: "user-1", Status: domain.FollowupStatusOngoing},
 			},
 			expectError:   true,
 			errorContains: "failed to connect to IMAP",
@@ -1071,10 +1060,10 @@ func TestPoller_pollUser_CompleteFlow(t *testing.T) {
 					},
 				}
 			},
-			rules: []*domain.AutomationRule{
-				{ID: "auto-1", UserID: "user-1", Status: domain.AutomationStatusActive},
-				{ID: "auto-2", UserID: "user-1", Status: domain.AutomationStatusActive},
-				{ID: "auto-3", UserID: "user-1", Status: domain.AutomationStatusActive},
+			rules: []*domain.Followup{
+				{ID: "auto-1", UserID: "user-1", Status: domain.FollowupStatusOngoing},
+				{ID: "auto-2", UserID: "user-1", Status: domain.FollowupStatusOngoing},
+				{ID: "auto-3", UserID: "user-1", Status: domain.FollowupStatusOngoing},
 			},
 			expectError:   true,
 			errorContains: "failed to connect to IMAP",
@@ -1084,7 +1073,7 @@ func TestPoller_pollUser_CompleteFlow(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockEmail := tt.emailSetup()
-			mockAutomation := &mockAutomationRepository{}
+			mockAutomation := &mockFollowupRepository{}
 			mockThread := &mockEmailThreadRepository{}
 
 			poller := NewPoller(mockEmail, mockAutomation, mockThread, 100*time.Millisecond)
@@ -1104,7 +1093,7 @@ func TestPoller_pollUser_CompleteFlow(t *testing.T) {
 // TestPoller_ConnectIMAP_TestsConnectionParameters tests various IMAP connection parameters
 func TestPoller_ConnectIMAP_TestsConnectionParameters(t *testing.T) {
 	mockEmail := &mockEmailService{}
-	mockAutomation := &mockAutomationRepository{}
+	mockAutomation := &mockFollowupRepository{}
 	mockThread := &mockEmailThreadRepository{}
 
 	poller := NewPoller(mockEmail, mockAutomation, mockThread, 100*time.Millisecond)
