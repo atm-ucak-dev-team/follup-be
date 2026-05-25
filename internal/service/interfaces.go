@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"time"
+	"time"
 
 	"github.com/atm-ucak/follup/internal/domain"
 )
@@ -57,8 +58,11 @@ type AutomationService interface {
 	// ListFollowupDetails retrieves followups with computed status and timestamps
 	ListFollowupDetails(ctx interface{}, userID string, jiraTicketID string) ([]*FollowupDetail, error)
 
-	// GetSummary returns summary counts for a specific jira ticket
-	GetSummary(ctx interface{}, userID string, jiraTicketID string) (*FollowupSummary, error)
+// GetSummary returns summary counts for a specific jira ticket
+GetSummary(ctx interface{}, userID string, jiraTicketID string) (*FollowupSummary, error)
+
+// GetGlobalSummary returns summary counts across all jira tickets for a user
+GetGlobalSummary(ctx interface{}, userID string) (*FollowupSummary, error)
 }
 
 // FollowupSummary represents the summary counts for a jira ticket

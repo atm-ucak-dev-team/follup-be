@@ -97,6 +97,14 @@ func (m *MockFollowupServiceV2) GetSummary(ctx interface{}, userID string, jiraT
 	return args.Get(0).(*service2.FollowupSummary), args.Error(1)
 }
 
+func (m *MockFollowupServiceV2) GetGlobalSummary(ctx interface{}, userID string) (*service2.FollowupSummary, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*service2.FollowupSummary), args.Error(1)
+}
+
 func createTestFollowupDetail(status string) *service2.FollowupDetail {
 	now := time.Now()
 	f := &domain.Followup{
@@ -336,6 +344,84 @@ func TestGetSummary_ServiceError(t *testing.T) {
 	err = json.Unmarshal(rec.Body.Bytes(), &response)
 	assert.NoError(t, err)
 	assert.Equal(t, "SUMMARY_FAILED", response.Error.Code)
+
+	mockSvc.AssertExpectations(t)
+}
+
+func TestGetGlobalSummary_Success(t *testing.T) {
+	e := echo.New()
+	mockSvc := new(MockFollowupServiceV2)
+	handler := NewFollowupHandler(mockSvc)
+
+	expectedSummary := &service2.FollowupSummary{
+		JiraTicketID: "",
+		JiraTitle:    "",
+		Replied:      3,
+		Ongoing:      4,
+		Expired:      2,
+	}
+
+	mockSvc.On("GetGlobalSummary", mock.Anything, "test-user-123").Return(expectedSummary, nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/statistic", nil)
+	c, rec := setupEchoContextWithUser(e, req, "test-user-123")
+
+	err := handler.GetGlobalSummary(c)
+
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var response StatisticResponse
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.Equal(t, 3, response.Replied)
+	assert.Equal(t, 4, response.Ongoing)
+	assert.Equal(t, 2, response.Expired)
+
+	mockSvc.AssertExpectations(t)
+}
+
+func TestGetGlobalSummary_Unauthorized(t *testing.T) {
+	e := echo.New()
+	mockSvc := new(MockFollowupServiceV2)
+	handler := NewFollowupHandler(mockSvc)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/statistic", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	err := handler.GetGlobalSummary(c)
+
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+
+	var response ErrorResponse
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.Equal(t, "UNAUTHORIZED", response.Error.Code)
+
+	mockSvc.AssertNotCalled(t, "GetGlobalSummary", mock.Anything, mock.Anything)
+}
+
+func TestGetGlobalSummary_ServiceError(t *testing.T) {
+	e := echo.New()
+	mockSvc := new(MockFollowupServiceV2)
+	handler := NewFollowupHandler(mockSvc)
+
+	mockSvc.On("GetGlobalSummary", mock.Anything, "test-user-123").Return(nil, errors.New("db error"))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/statistic", nil)
+	c, rec := setupEchoContextWithUser(e, req, "test-user-123")
+
+	err := handler.GetGlobalSummary(c)
+
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+
+	var response ErrorResponse
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.Equal(t, "GLOBAL_SUMMARY_FAILED", response.Error.Code)
 
 	mockSvc.AssertExpectations(t)
 }

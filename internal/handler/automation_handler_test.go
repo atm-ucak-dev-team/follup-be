@@ -11,6 +11,7 @@ import (
 
 	"github.com/atm-ucak/follup/internal/domain"
 	service2 "github.com/atm-ucak/follup/internal/service"
+	service2 "github.com/atm-ucak/follup/internal/service"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -93,6 +94,14 @@ func (m *MockFollowupService) ListFollowupDetails(ctx interface{}, userID string
 
 func (m *MockFollowupService) GetSummary(ctx interface{}, userID string, jiraTicketID string) (*service2.FollowupSummary, error) {
 	args := m.Called(ctx, userID, jiraTicketID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*service2.FollowupSummary), args.Error(1)
+}
+
+func (m *MockFollowupService) GetGlobalSummary(ctx interface{}, userID string) (*service2.FollowupSummary, error) {
+	args := m.Called(ctx, userID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}

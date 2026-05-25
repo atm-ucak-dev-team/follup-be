@@ -15,15 +15,22 @@ type AutomationServiceImpl struct {
 	followupRepo    repository.FollowupRepository
 	emailThreadRepo repository.EmailThreadRepository
 	emailService    EmailService
+	followupRepo    repository.FollowupRepository
+	emailThreadRepo repository.EmailThreadRepository
+	emailService    EmailService
 }
 
 // NewAutomationService creates a new AutomationService instance
 func NewAutomationService(
 	followupRepo repository.FollowupRepository,
 	emailThreadRepo repository.EmailThreadRepository,
+	emailThreadRepo repository.EmailThreadRepository,
 	emailService EmailService,
 ) AutomationService {
 	return &AutomationServiceImpl{
+		followupRepo:    followupRepo,
+		emailThreadRepo: emailThreadRepo,
+		emailService:    emailService,
 		followupRepo:    followupRepo,
 		emailThreadRepo: emailThreadRepo,
 		emailService:    emailService,
@@ -311,6 +318,36 @@ func (s *AutomationServiceImpl) GetSummary(ctx interface{}, userID string, jiraT
 
 	summary := &FollowupSummary{
 		JiraTicketID: jiraTicketID,
+		JiraTitle:    "",
+	}
+
+	for _, d := range details {
+		switch d.EffectiveStatus {
+		case "replied":
+			summary.Replied++
+		case "ongoing":
+			summary.Ongoing++
+		case "expired":
+			summary.Expired++
+		}
+	}
+
+	return summary, nil
+}
+
+// GetGlobalSummary returns summary counts across all jira tickets for a user
+func (s *AutomationServiceImpl) GetGlobalSummary(ctx interface{}, userID string) (*FollowupSummary, error) {
+	if userID == "" {
+		return nil, fmt.Errorf("user ID cannot be empty")
+	}
+
+	details, err := s.ListFollowupDetails(ctx, userID, "")
+	if err != nil {
+		return nil, err
+	}
+
+	summary := &FollowupSummary{
+		JiraTicketID: "",
 		JiraTitle:    "",
 	}
 
