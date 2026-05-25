@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/atm-ucak/follup/internal/domain"
+	service2 "github.com/atm-ucak/follup/internal/service"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -72,6 +73,30 @@ func (m *MockFollowupService) GetActiveRules(ctx interface{}) ([]*domain.Followu
 func (m *MockFollowupService) TriggerRule(ctx interface{}, automationID string) error {
 	args := m.Called(ctx, automationID)
 	return args.Error(0)
+}
+
+func (m *MockFollowupService) ListFollowups(ctx interface{}, userID string, jiraTicketID string) ([]*domain.Followup, error) {
+	args := m.Called(ctx, userID, jiraTicketID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Followup), args.Error(1)
+}
+
+func (m *MockFollowupService) ListFollowupDetails(ctx interface{}, userID string, jiraTicketID string) ([]*service2.FollowupDetail, error) {
+	args := m.Called(ctx, userID, jiraTicketID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*service2.FollowupDetail), args.Error(1)
+}
+
+func (m *MockFollowupService) GetSummary(ctx interface{}, userID string, jiraTicketID string) (*service2.FollowupSummary, error) {
+	args := m.Called(ctx, userID, jiraTicketID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*service2.FollowupSummary), args.Error(1)
 }
 
 // Helper function to create a test automation rule
