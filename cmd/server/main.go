@@ -232,6 +232,7 @@ func main() {
 	api.GET("/followup", followupHandler.ListFollowups)
 	api.GET("/:jiraTicketID/followups", followupHandler.GetFollowupsByTicketID)
 	api.GET("/:jiraTicketID/summary", followupHandler.GetSummary)
+	api.GET("/statistic", followupHandler.GetGlobalSummary)
 
 	log.Println("Registered HTTP routes")
 

@@ -36,6 +36,13 @@ type FollowupSummaryResponse struct {
 	Expired      int    `json:"expired"`
 }
 
+// StatisticResponse represents the global summary without ticket-specific fields
+type StatisticResponse struct {
+	Replied int `json:"replied"`
+	Ongoing int `json:"ongoing"`
+	Expired int `json:"expired"`
+}
+
 func formatTime(t *string) *string {
 	if t == nil || *t == "" {
 		return nil
@@ -138,6 +145,27 @@ func (h *FollowupHandler) GetSummary(c echo.Context) error {
 		Replied:      summary.Replied,
 		Ongoing:      summary.Ongoing,
 		Expired:      summary.Expired,
+	}
+
+	return c.JSON(http.StatusOK, resp)
+}
+
+// GetGlobalSummary returns summary counts across all jira tickets for a user
+func (h *FollowupHandler) GetGlobalSummary(c echo.Context) error {
+	userID := getUserIDFromContext(c)
+	if userID == "" {
+		return buildErrorResponse(c, http.StatusUnauthorized, "UNAUTHORIZED", "user not authenticated")
+	}
+
+	summary, err := h.automationService.GetGlobalSummary(c.Request().Context(), userID)
+	if err != nil {
+		return buildErrorResponse(c, http.StatusInternalServerError, "GLOBAL_SUMMARY_FAILED", "failed to get global summary: "+err.Error())
+	}
+
+	resp := StatisticResponse{
+		Replied: summary.Replied,
+		Ongoing: summary.Ongoing,
+		Expired: summary.Expired,
 	}
 
 	return c.JSON(http.StatusOK, resp)

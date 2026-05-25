@@ -99,6 +99,14 @@ func (m *MockFollowupService) GetSummary(ctx interface{}, userID string, jiraTic
 	return args.Get(0).(*service2.FollowupSummary), args.Error(1)
 }
 
+func (m *MockFollowupService) GetGlobalSummary(ctx interface{}, userID string) (*service2.FollowupSummary, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*service2.FollowupSummary), args.Error(1)
+}
+
 // Helper function to create a test automation rule
 func createTestFollowup() *domain.Followup {
 	return &domain.Followup{

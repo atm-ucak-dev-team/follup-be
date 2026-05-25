@@ -328,6 +328,36 @@ func (s *AutomationServiceImpl) GetSummary(ctx interface{}, userID string, jiraT
 	return summary, nil
 }
 
+// GetGlobalSummary returns summary counts across all jira tickets for a user
+func (s *AutomationServiceImpl) GetGlobalSummary(ctx interface{}, userID string) (*FollowupSummary, error) {
+	if userID == "" {
+		return nil, fmt.Errorf("user ID cannot be empty")
+	}
+
+	details, err := s.ListFollowupDetails(ctx, userID, "")
+	if err != nil {
+		return nil, err
+	}
+
+	summary := &FollowupSummary{
+		JiraTicketID: "",
+		JiraTitle:    "",
+	}
+
+	for _, d := range details {
+		switch d.EffectiveStatus {
+		case "replied":
+			summary.Replied++
+		case "ongoing":
+			summary.Ongoing++
+		case "expired":
+			summary.Expired++
+		}
+	}
+
+	return summary, nil
+}
+
 // enrichFollowupDetail computes effective status and timestamps for a followup
 func (s *AutomationServiceImpl) enrichFollowupDetail(ctx context.Context, d *FollowupDetail) {
 	r := d.Followup
