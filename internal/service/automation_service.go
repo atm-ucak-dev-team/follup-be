@@ -15,15 +15,22 @@ type AutomationServiceImpl struct {
 	followupRepo    repository.FollowupRepository
 	emailThreadRepo repository.EmailThreadRepository
 	emailService    EmailService
+	followupRepo    repository.FollowupRepository
+	emailThreadRepo repository.EmailThreadRepository
+	emailService    EmailService
 }
 
 // NewAutomationService creates a new AutomationService instance
 func NewAutomationService(
 	followupRepo repository.FollowupRepository,
 	emailThreadRepo repository.EmailThreadRepository,
+	emailThreadRepo repository.EmailThreadRepository,
 	emailService EmailService,
 ) AutomationService {
 	return &AutomationServiceImpl{
+		followupRepo:    followupRepo,
+		emailThreadRepo: emailThreadRepo,
+		emailService:    emailService,
 		followupRepo:    followupRepo,
 		emailThreadRepo: emailThreadRepo,
 		emailService:    emailService,

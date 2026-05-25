@@ -11,6 +11,7 @@ import (
 
 	"github.com/atm-ucak/follup/internal/domain"
 	service2 "github.com/atm-ucak/follup/internal/service"
+	service2 "github.com/atm-ucak/follup/internal/service"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
