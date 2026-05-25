@@ -146,7 +146,6 @@ func main() {
 	jiraService := service.NewJiraService(cfg)
 	emailService := service.NewEmailService(emailCredentialRepo, followupRepo, emailThreadRepo, cfg)
 	automationService := service.NewAutomationService(followupRepo, emailThreadRepo, emailService)
-	automationService := service.NewAutomationService(followupRepo, emailThreadRepo, emailService)
 
 	log.Println("Initialized services")
 
@@ -155,7 +154,6 @@ func main() {
 	jiraHandler := handler.NewJiraHandler(jiraService)
 	emailHandler := handler.NewEmailHandler(emailService)
 	automationHandler := handler.NewAutomationHandler(automationService)
-	followupHandler := handler.NewFollowupHandler(automationService)
 	followupHandler := handler.NewFollowupHandler(automationService)
 
 	log.Println("Initialized handlers")
