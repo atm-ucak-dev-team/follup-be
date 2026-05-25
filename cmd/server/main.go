@@ -145,7 +145,7 @@ func main() {
 	authService := service.NewAuthService(userRepo, oauthTokenRepo, followupRepo, cfg)
 	jiraService := service.NewJiraService(cfg)
 	emailService := service.NewEmailService(emailCredentialRepo, followupRepo, emailThreadRepo, cfg)
-	automationService := service.NewAutomationService(followupRepo, emailService)
+	automationService := service.NewAutomationService(followupRepo, emailThreadRepo, emailService)
 
 	log.Println("Initialized services")
 
@@ -154,6 +154,7 @@ func main() {
 	jiraHandler := handler.NewJiraHandler(jiraService)
 	emailHandler := handler.NewEmailHandler(emailService)
 	automationHandler := handler.NewAutomationHandler(automationService)
+	followupHandler := handler.NewFollowupHandler(automationService)
 
 	log.Println("Initialized handlers")
 
@@ -227,6 +228,11 @@ func main() {
 	api.DELETE("/automations/:id", automationHandler.DeleteAutomation)
 	api.POST("/automations/:id/trigger", automationHandler.TriggerAutomation)
 
+	// Followup routes
+	api.GET("/followup", followupHandler.ListFollowups)
+	api.GET("/:jiraTicketID/followups", followupHandler.GetFollowupsByTicketID)
+	api.GET("/:jiraTicketID/summary", followupHandler.GetSummary)
+
 	log.Println("Registered HTTP routes")
 
 	// 9. Start Echo server in background goroutine
@@ -234,7 +240,7 @@ func main() {
 		addr := fmt.Sprintf(":%d", cfg.Port)
 		log.Printf("Starting HTTP server on %s", addr)
 		if err := e.Start(addr); err != nil && err != http.ErrServerClosed {
-			e.Logger.Fatal("shutting down the server")
+			e.Logger.Fatalf("HTTP server error: %v", err)
 		}
 	}()
 

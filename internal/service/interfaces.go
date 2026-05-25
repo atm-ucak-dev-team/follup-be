@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"time"
 
 	"github.com/atm-ucak/follup/internal/domain"
 )
@@ -49,6 +50,32 @@ type AutomationService interface {
 
 	// TriggerRule manually executes a followup rule
 	TriggerRule(ctx interface{}, automationID string) error
+
+	// ListFollowups retrieves followups for a user, optionally filtered by jira ticket
+	ListFollowups(ctx interface{}, userID string, jiraTicketID string) ([]*domain.Followup, error)
+
+	// ListFollowupDetails retrieves followups with computed status and timestamps
+	ListFollowupDetails(ctx interface{}, userID string, jiraTicketID string) ([]*FollowupDetail, error)
+
+	// GetSummary returns summary counts for a specific jira ticket
+	GetSummary(ctx interface{}, userID string, jiraTicketID string) (*FollowupSummary, error)
+}
+
+// FollowupSummary represents the summary counts for a jira ticket
+type FollowupSummary struct {
+	JiraTicketID string
+	JiraTitle    string
+	Replied      int
+	Ongoing      int
+	Expired      int
+}
+
+// FollowupDetail represents a followup with computed status and timestamps
+type FollowupDetail struct {
+	Followup        *domain.Followup
+	EffectiveStatus string     // "ongoing", "replied", "expired"
+	RepliedAt       *time.Time
+	NextFollowUp    *time.Time
 }
 
 // EmailService defines the interface for email operations

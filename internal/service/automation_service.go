@@ -12,18 +12,21 @@ import (
 
 // AutomationServiceImpl implements the AutomationService interface
 type AutomationServiceImpl struct {
-	followupRepo repository.FollowupRepository
-	emailService EmailService
+	followupRepo    repository.FollowupRepository
+	emailThreadRepo repository.EmailThreadRepository
+	emailService    EmailService
 }
 
 // NewAutomationService creates a new AutomationService instance
 func NewAutomationService(
 	followupRepo repository.FollowupRepository,
+	emailThreadRepo repository.EmailThreadRepository,
 	emailService EmailService,
 ) AutomationService {
 	return &AutomationServiceImpl{
-		followupRepo: followupRepo,
-		emailService: emailService,
+		followupRepo:    followupRepo,
+		emailThreadRepo: emailThreadRepo,
+		emailService:    emailService,
 	}
 }
 
@@ -239,6 +242,129 @@ func (s *AutomationServiceImpl) TriggerRule(ctx interface{}, automationID string
 	}
 
 	return nil
+}
+
+// ListFollowups retrieves followups for a user, optionally filtered by jira ticket
+func (s *AutomationServiceImpl) ListFollowups(ctx interface{}, userID string, jiraTicketID string) ([]*domain.Followup, error) {
+	contextCast, ok := ctx.(context.Context)
+	if !ok {
+		return nil, fmt.Errorf("invalid context type")
+	}
+
+	if userID == "" {
+		return nil, fmt.Errorf("user ID cannot be empty")
+	}
+
+	rules, err := s.followupRepo.GetByUserID(contextCast, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get followup rules: %w", err)
+	}
+
+	if jiraTicketID == "" {
+		return rules, nil
+	}
+
+	filtered := make([]*domain.Followup, 0, len(rules))
+	for _, r := range rules {
+		if r.JiraTicketKey == jiraTicketID || r.JiraTicketID == jiraTicketID {
+			filtered = append(filtered, r)
+		}
+	}
+	return filtered, nil
+}
+
+// ListFollowupDetails retrieves followups with computed status and timestamps
+func (s *AutomationServiceImpl) ListFollowupDetails(ctx interface{}, userID string, jiraTicketID string) ([]*FollowupDetail, error) {
+	contextCast, ok := ctx.(context.Context)
+	if !ok {
+		return nil, fmt.Errorf("invalid context type")
+	}
+
+	rules, err := s.ListFollowups(ctx, userID, jiraTicketID)
+	if err != nil {
+		return nil, err
+	}
+
+	details := make([]*FollowupDetail, 0, len(rules))
+	for _, r := range rules {
+		d := &FollowupDetail{Followup: r}
+		s.enrichFollowupDetail(contextCast, d)
+		details = append(details, d)
+	}
+
+	return details, nil
+}
+
+// GetSummary returns summary counts for a specific jira ticket
+func (s *AutomationServiceImpl) GetSummary(ctx interface{}, userID string, jiraTicketID string) (*FollowupSummary, error) {
+	if userID == "" {
+		return nil, fmt.Errorf("user ID cannot be empty")
+	}
+	if jiraTicketID == "" {
+		return nil, fmt.Errorf("jira ticket ID cannot be empty")
+	}
+
+	details, err := s.ListFollowupDetails(ctx, userID, jiraTicketID)
+	if err != nil {
+		return nil, err
+	}
+
+	summary := &FollowupSummary{
+		JiraTicketID: jiraTicketID,
+		JiraTitle:    "",
+	}
+
+	for _, d := range details {
+		switch d.EffectiveStatus {
+		case "replied":
+			summary.Replied++
+		case "ongoing":
+			summary.Ongoing++
+		case "expired":
+			summary.Expired++
+		}
+	}
+
+	return summary, nil
+}
+
+// enrichFollowupDetail computes effective status and timestamps for a followup
+func (s *AutomationServiceImpl) enrichFollowupDetail(ctx context.Context, d *FollowupDetail) {
+	r := d.Followup
+	now := time.Now()
+
+	// Check for replied threads
+	threads, err := s.emailThreadRepo.GetByAutomationID(ctx, r.ID)
+	if err == nil {
+		for _, t := range threads {
+			if t.Status == domain.EmailThreadStatusReplied {
+				d.EffectiveStatus = "replied"
+				if d.RepliedAt == nil || t.LastSyncedAt.After(*d.RepliedAt) {
+					d.RepliedAt = &t.LastSyncedAt
+				}
+			}
+		}
+	}
+
+	if d.EffectiveStatus == "replied" {
+		return
+	}
+
+	// Check if expired
+	if r.ExpireDateTime.Before(now) {
+		d.EffectiveStatus = "expired"
+		return
+	}
+
+	// Default to ongoing + compute next follow-up
+	d.EffectiveStatus = "ongoing"
+	if r.Frequency != "" {
+		schedule, err := cron.ParseStandard(r.Frequency)
+		if err == nil {
+			next := schedule.Next(now)
+			d.NextFollowUp = &next
+		}
+	}
 }
 
 func (s *AutomationServiceImpl) validateRule(rule *domain.Followup) error {
