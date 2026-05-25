@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"time"
-	"time"
 
 	"github.com/atm-ucak/follup/internal/domain"
 )
