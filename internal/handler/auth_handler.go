@@ -79,6 +79,7 @@ func (h *AuthHandler) JiraCallback(c echo.Context) error {
 			"expires_in":    tokenInfo.ExpiresIn,
 			"token_type":    tokenInfo.TokenType,
 			"scope":         tokenInfo.Scope,
+			"token":         tokenInfo.Token,
 			"user": map[string]interface{}{
 				"id":         user.ID,
 				"name":       user.Name,
@@ -102,6 +103,7 @@ func (h *AuthHandler) JiraCallback(c echo.Context) error {
 			"expires_in":    tokenInfo.ExpiresIn,
 			"token_type":    tokenInfo.TokenType,
 			"scope":         tokenInfo.Scope,
+			"token":         tokenInfo.Token,
 			"user": map[string]interface{}{
 				"id":         user.ID,
 				"name":       user.Name,
@@ -125,6 +127,7 @@ func (h *AuthHandler) JiraCallback(c echo.Context) error {
 			"expires_in":    tokenInfo.ExpiresIn,
 			"token_type":    tokenInfo.TokenType,
 			"scope":         tokenInfo.Scope,
+			"token":         tokenInfo.Token,
 			"user": map[string]interface{}{
 				"id":         user.ID,
 				"name":       user.Name,
@@ -167,6 +170,7 @@ func (h *AuthHandler) DummyJiraCallback(c echo.Context) error {
 		ExpiresIn:    3600,
 		TokenType:    "Bearer",
 		Scope:        "read:jira-user read:jira-work",
+		Token:        "dummy-jwt-token-for-testing",
 	}
 
 	// Create hardcoded dummy user data
@@ -191,6 +195,7 @@ func (h *AuthHandler) DummyJiraCallback(c echo.Context) error {
 			"expires_in":    tokenInfo.ExpiresIn,
 			"token_type":    tokenInfo.TokenType,
 			"scope":         tokenInfo.Scope,
+			"token":         tokenInfo.Token,
 			"user": map[string]interface{}{
 				"id":         user.ID,
 				"name":       user.Name,
@@ -214,6 +219,7 @@ func (h *AuthHandler) DummyJiraCallback(c echo.Context) error {
 			"expires_in":    tokenInfo.ExpiresIn,
 			"token_type":    tokenInfo.TokenType,
 			"scope":         tokenInfo.Scope,
+			"token":         tokenInfo.Token,
 			"user": map[string]interface{}{
 				"id":         user.ID,
 				"name":       user.Name,
@@ -237,6 +243,7 @@ func (h *AuthHandler) DummyJiraCallback(c echo.Context) error {
 			"expires_in":    tokenInfo.ExpiresIn,
 			"token_type":    tokenInfo.TokenType,
 			"scope":         tokenInfo.Scope,
+			"token":         tokenInfo.Token,
 			"user": map[string]interface{}{
 				"id":         user.ID,
 				"name":       user.Name,
@@ -284,6 +291,28 @@ func (h *AuthHandler) RefreshToken(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, tokenResp)
+}
+
+// DevToken generates a JWT token for development/testing (development only)
+func (h *AuthHandler) DevToken(c echo.Context) error {
+	if h.config.Env != "development" {
+		return buildErrorResponse(c, http.StatusForbidden, "NOT_AVAILABLE", "dev endpoint only available in development")
+	}
+
+	userID := c.QueryParam("user_id")
+	if userID == "" {
+		return buildErrorResponse(c, http.StatusBadRequest, "MISSING_USER_ID", "user_id query parameter is required")
+	}
+
+	token, err := h.authService.GenerateToken(userID)
+	if err != nil {
+		return buildErrorResponse(c, http.StatusInternalServerError, "TOKEN_FAILED", "failed to generate token: "+err.Error())
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{
+		"token":   token,
+		"user_id": userID,
+	})
 }
 
 // ErrorResponse represents the error response format
@@ -340,6 +369,7 @@ func buildRedirectURL(baseURL string, tokenInfo *service.JiraTokenInfo, user *do
 	params.Add("expires_in", fmt.Sprintf("%d", tokenInfo.ExpiresIn))
 	params.Add("token_type", tokenInfo.TokenType)
 	params.Add("scope", tokenInfo.Scope)
+	params.Add("token", tokenInfo.Token)
 	params.Add("user_id", user.ID)
 	params.Add("user_name", user.Name)
 	params.Add("user_email", user.Email)

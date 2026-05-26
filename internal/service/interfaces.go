@@ -20,6 +20,9 @@ type AuthService interface {
 
 	// ValidateToken validates if a token is valid and not expired
 	ValidateToken(token *domain.OAuthToken) bool
+
+	// GenerateToken generates an app JWT for the given user ID
+	GenerateToken(userID string) (string, error)
 }
 
 // AutomationService defines the interface for followup rule operations

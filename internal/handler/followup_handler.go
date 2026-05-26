@@ -3,7 +3,9 @@ package handler
 import (
 	"net/http"
 	"strings"
+	"time"
 
+	"github.com/atm-ucak/follup/internal/domain"
 	service2 "github.com/atm-ucak/follup/internal/service"
 	"github.com/labstack/echo/v4"
 )
@@ -16,6 +18,80 @@ func NewFollowupHandler(automationService service2.AutomationService) *FollowupH
 	return &FollowupHandler{
 		automationService: automationService,
 	}
+}
+
+func (h *FollowupHandler) CreateFollowup(c echo.Context) error {
+	userID := getUserIDFromContext(c)
+	if userID == "" {
+		return buildErrorResponse(c, http.StatusUnauthorized, "UNAUTHORIZED", "user not authenticated")
+	}
+
+	var req CreateFollowupRequest
+	if err := c.Bind(&req); err != nil {
+		return buildErrorResponse(c, http.StatusBadRequest, "INVALID_REQUEST_BODY", "invalid request body: "+err.Error())
+	}
+
+	if req.JiraTicketID == "" {
+		return buildErrorResponse(c, http.StatusBadRequest, "MISSING_JIRA_TICKET_ID", "jiraTicketId is required")
+	}
+	if req.To == "" {
+		return buildErrorResponse(c, http.StatusBadRequest, "MISSING_TO", "to is required")
+	}
+	if !strings.Contains(req.To, "@") {
+		return buildErrorResponse(c, http.StatusUnprocessableEntity, "INVALID_TO", "to must be a valid email address")
+	}
+	if req.Cc != "" && !strings.Contains(req.Cc, "@") {
+		return buildErrorResponse(c, http.StatusUnprocessableEntity, "INVALID_CC", "cc must be a valid email address")
+	}
+	if len(req.To) > 500 || len(req.Cc) > 500 {
+		return buildErrorResponse(c, http.StatusUnprocessableEntity, "INVALID_RECIPIENTS", "to/cc must not exceed 500 characters")
+	}
+	if req.Subject == "" {
+		return buildErrorResponse(c, http.StatusBadRequest, "MISSING_SUBJECT", "subject is required")
+	}
+	if len(req.Subject) > 500 {
+		return buildErrorResponse(c, http.StatusUnprocessableEntity, "INVALID_SUBJECT", "subject must not exceed 500 characters")
+	}
+	if req.EmailBody == "" {
+		return buildErrorResponse(c, http.StatusBadRequest, "MISSING_EMAIL_BODY", "emailBody is required")
+	}
+	if len(req.EmailBody) > 10000 {
+		return buildErrorResponse(c, http.StatusUnprocessableEntity, "INVALID_EMAIL_BODY", "emailBody must not exceed 10000 characters")
+	}
+	if req.Frequency == "" {
+		return buildErrorResponse(c, http.StatusBadRequest, "MISSING_FREQUENCY", "frequency is required")
+	}
+	if req.Repeat < 0 {
+		return buildErrorResponse(c, http.StatusUnprocessableEntity, "INVALID_REPEAT", "repeat must not be negative")
+	}
+
+	var cc *string
+	if req.Cc != "" {
+		cc = &req.Cc
+	}
+
+	rule := &domain.Followup{
+		UserID:               userID,
+		JiraTicketID:         req.JiraTicketID,
+		To:                   req.To,
+		Cc:                   cc,
+		Subject:              req.Subject,
+		EmailBody:            req.EmailBody,
+		StartDateTime:        req.StartDateTime,
+		ExpireDateTime:       req.ExpireDateTime,
+		Frequency:            req.Frequency,
+		Repeat:               req.Repeat,
+		FollowupConfirmation: req.FollowupConfirmation,
+	}
+
+	if err := h.automationService.CreateRule(c.Request().Context(), rule); err != nil {
+		if strings.Contains(err.Error(), "invalid frequency") {
+			return buildErrorResponse(c, http.StatusUnprocessableEntity, "INVALID_FREQUENCY", "invalid frequency: "+err.Error())
+		}
+		return buildErrorResponse(c, http.StatusInternalServerError, "FOLLOWUP_CREATE_FAILED", "failed to create followup: "+err.Error())
+	}
+
+	return c.JSON(http.StatusCreated, rule)
 }
 
 type FollowupItem struct {
@@ -34,6 +110,20 @@ type FollowupSummaryResponse struct {
 	Replied      int    `json:"replied"`
 	Ongoing      int    `json:"ongoing"`
 	Expired      int    `json:"expired"`
+}
+
+// CreateFollowupRequest represents the request body for creating a followup via POST /v1/followups
+type CreateFollowupRequest struct {
+	JiraTicketID         string    `json:"jiraTicketId"`
+	To                   string    `json:"to"`
+	Cc                   string    `json:"cc,omitempty"`
+	Subject              string    `json:"subject"`
+	EmailBody            string    `json:"emailBody"`
+	StartDateTime        time.Time `json:"startDateTime"`
+	ExpireDateTime       time.Time `json:"expireDateTime"`
+	Frequency            string    `json:"frequency"`
+	Repeat               int       `json:"repeat"`
+	FollowupConfirmation bool      `json:"followupConfirmation"`
 }
 
 // StatisticResponse represents the global summary without ticket-specific fields
