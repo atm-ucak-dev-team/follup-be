@@ -7,12 +7,9 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-
-	"strings"
 	"syscall"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/atm-ucak/follup/config"
 	"github.com/atm-ucak/follup/internal/cron"
 	"github.com/atm-ucak/follup/internal/email"
@@ -26,55 +23,16 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 )
 
-// jwtMiddleware creates a simple JWT authentication middleware
-func jwtMiddleware(jwtSecret string) echo.MiddlewareFunc {
-	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			// Get Authorization header
-			authHeader := c.Request().Header.Get("Authorization")
-			if authHeader == "" {
-				return c.JSON(http.StatusUnauthorized, map[string]string{
-					"error": "missing authorization header",
-				})
-			}
-
-			// Check Bearer token format
-			parts := strings.Split(authHeader, " ")
-			if len(parts) != 2 || parts[0] != "Bearer" {
-				return c.JSON(http.StatusUnauthorized, map[string]string{
-					"error": "invalid authorization header format",
-				})
-			}
-
-			tokenString := parts[1]
-
-			// Parse and validate token
-			token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-				// Validate signing method
-				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-					return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-				}
-				return []byte(jwtSecret), nil
-			})
-
-			if err != nil || !token.Valid {
-				return c.JSON(http.StatusUnauthorized, map[string]string{
-					"error": "invalid or expired token",
-				})
-			}
-
-			// Extract user ID from claims
-			if claims, ok := token.Claims.(jwt.MapClaims); ok {
-				if userID, ok := claims["user_id"].(string); ok {
-					c.Set("user_id", userID)
-					return next(c)
-				}
-			}
-
+func dummyAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		userID := c.Request().Header.Get("X-User-Dummy-Id")
+		if userID == "" {
 			return c.JSON(http.StatusUnauthorized, map[string]string{
-				"error": "invalid token claims",
+				"error": "missing X-User-Dummy-Id header",
 			})
 		}
+		c.Set("user_id", userID)
+		return next(c)
 	}
 }
 
@@ -195,9 +153,9 @@ func main() {
 	// Dev token endpoint (development only)
 	e.GET("/auth/dev/token", authHandler.DevToken)
 
-	// Protected routes (JWT authentication required)
+	// Protected routes (auth via X-User-Dummy-Id header)
 	api := e.Group("/api/v1")
-	// api.Use(jwtMiddleware(cfg.JWTSecret))
+	api.Use(dummyAuthMiddleware)
 
 	// Email credentials routes
 	api.POST("/email/credentials", emailHandler.SaveCredentials)
@@ -232,7 +190,6 @@ func main() {
 		addr := fmt.Sprintf(":%d", cfg.Port)
 		log.Printf("Starting HTTP server on %s", addr)
 		if err := e.Start(addr); err != nil && err != http.ErrServerClosed {
-			e.Logger.Fatalf("HTTP server error: %v", err)
 			e.Logger.Fatalf("HTTP server error: %v", err)
 		}
 	}()
