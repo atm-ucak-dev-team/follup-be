@@ -196,7 +196,7 @@ func main() {
 	e.GET("/auth/dev/token", authHandler.DevToken)
 
 	// Protected routes (JWT authentication required)
-	// api := e.Group("/api/v1")
+	api := e.Group("/api/v1")
 	// api.Use(jwtMiddleware(cfg.JWTSecret))
 
 	// Email credentials routes
