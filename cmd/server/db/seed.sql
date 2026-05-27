@@ -1,22 +1,57 @@
--- Seed data for Bruno testing - mencakup semua kondisi status
--- Clean existing data
+-- Seed data untuk semua tables
+-- Covers: users, user_profiles, tickets, followups, oauth_tokens, email_credentials, email_threads
+
+BEGIN;
+
+-- ================================================================
+-- CLEAN EXISTING DATA (order by FK dependency)
+-- ================================================================
 DELETE FROM email_threads;
 DELETE FROM followups;
+DELETE FROM oauth_tokens;
+DELETE FROM email_credentials;
+DELETE FROM user_profiles;
 DELETE FROM tickets;
 DELETE FROM users;
 
--- Insert user
-INSERT INTO users (id, jira_account_id)
-VALUES ('test-user-123', 'jira-acc-test');
-
--- Insert tickets
-INSERT INTO tickets (jira_ticket_id, user_id)
-VALUES ('10001', 'test-user-123'),
-       ('10002', 'test-user-123'),
-       ('10003', 'test-user-123');
+-- ================================================================
+-- USERS
+-- ================================================================
+INSERT INTO users (id, jira_account_id) VALUES
+    ('test-user-123', 'jira-acc-test'),
+    ('test-user-456', 'jira-acc-test-2');
 
 -- ================================================================
--- PROJ-123 FOLLOWUPS (jira_ticket_id = 10001)
+-- USER PROFILES
+-- ================================================================
+INSERT INTO user_profiles (user_id, name, email, cloud_id, avatar_url, created_at) VALUES
+    ('test-user-123', 'Test User', 'test@example.com', 'dummy-cloud-456', 'https://example.com/avatar.png', NOW() - INTERVAL '30 days'),
+    ('test-user-456', 'Second User', 'second@example.com', 'dummy-cloud-789', NULL, NOW() - INTERVAL '14 days');
+
+-- ================================================================
+-- OAUTH TOKENS
+-- ================================================================
+INSERT INTO oauth_tokens (user_id, provider, access_token, refresh_token, expires_at) VALUES
+    ('test-user-123', 'jira', 'dummy_access_token_for_testing', 'dummy_refresh_token_for_testing', NOW() + INTERVAL '30 days'),
+    ('test-user-456', 'jira', 'second_access_token', 'second_refresh_token', NOW() + INTERVAL '15 days');
+
+-- ================================================================
+-- EMAIL CREDENTIALS
+-- ================================================================
+INSERT INTO email_credentials (user_id, email_address, encrypted_password, imap_host, smtp_host, created_at) VALUES
+    ('test-user-123', 'test@example.com', 'encrypted_password_here', 'imap.example.com', 'smtp.example.com', NOW() - INTERVAL '7 days');
+
+-- ================================================================
+-- TICKETS
+-- ================================================================
+INSERT INTO tickets (jira_ticket_id, user_id) VALUES
+    ('10001', 'test-user-123'),
+    ('10002', 'test-user-123'),
+    ('10003', 'test-user-123'),
+    ('10004', 'test-user-456');
+
+-- ================================================================
+-- FOLLOWUPS (test-user-123)
 -- ================================================================
 
 -- 1. Ongoing, not expired, with frequency & lastRunAt -> shows nextFollowUp
@@ -67,7 +102,7 @@ VALUES ('a0000000-0000-0000-0000-000000000005', '10001', 'test-user-123',
         '0 9 * * 1', 0, FALSE, 'ongoing',
         'PROJ-123', NOW() - INTERVAL '10 days', NOW() - INTERVAL '20 days');
 
--- 5. DB status "completed" (not expired, no replies) -> effective: ongoing
+-- 5. DB status "completed" (not expired, no replies)
 INSERT INTO followups (id, jira_ticket_id, user_id, "to", cc, subject, email_body,
                        start_date_time, expire_date_time, frequency, repeat,
                        followup_confirmation, status, jira_ticket_key, last_run_at, created_at)
@@ -79,7 +114,7 @@ VALUES ('a0000000-0000-0000-0000-000000000006', '10001', 'test-user-123',
         '', 0, FALSE, 'completed',
         'PROJ-123', NULL, NOW() - INTERVAL '3 days');
 
--- 6. DB status "stopped" (not expired, no replies) -> effective: ongoing
+-- 6. DB status "stopped"
 INSERT INTO followups (id, jira_ticket_id, user_id, "to", cc, subject, email_body,
                        start_date_time, expire_date_time, frequency, repeat,
                        followup_confirmation, status, jira_ticket_key, last_run_at, created_at)
@@ -115,11 +150,7 @@ VALUES ('a0000000-0000-0000-0000-00000000000e', '10001', 'test-user-123',
         '0 9 * * 1', 0, FALSE, 'ongoing',
         'PROJ-123', NULL, NOW() - INTERVAL '30 days');
 
--- ================================================================
--- PROJ-456 FOLLOWUPS (jira_ticket_id = 10002)
--- ================================================================
-
--- 9. Ongoing with frequency & lastRunAt -> shows nextFollowUp
+-- 9. Ongoing with frequency & lastRunAt -> shows nextFollowUp (PROJ-456)
 INSERT INTO followups (id, jira_ticket_id, user_id, "to", cc, subject, email_body,
                        start_date_time, expire_date_time, frequency, repeat,
                        followup_confirmation, status, jira_ticket_key, last_run_at, created_at)
@@ -155,10 +186,6 @@ VALUES ('a0000000-0000-0000-0000-000000000008', '10002', 'test-user-123',
         '0 9 * * 1', 0, FALSE, 'ongoing',
         'PROJ-456', NULL, NOW() - INTERVAL '30 days');
 
--- ================================================================
--- PROJ-789 FOLLOWUPS (jira_ticket_id = 10003)
--- ================================================================
-
 -- 12. Ongoing with frequency, no threads at all -> shows nextFollowUp
 INSERT INTO followups (id, jira_ticket_id, user_id, "to", cc, subject, email_body,
                        start_date_time, expire_date_time, frequency, repeat,
@@ -171,7 +198,7 @@ VALUES ('a0000000-0000-0000-0000-000000000009', '10003', 'test-user-123',
         '0 9 * * 1', 0, FALSE, 'ongoing',
         'PROJ-789', NOW() - INTERVAL '1 day', NOW() - INTERVAL '1 day');
 
--- 13. Replied with multiple threads for PROJ-789 -> shows latest repliedAt
+-- 13. Replied with multiple threads -> shows latest repliedAt
 INSERT INTO followups (id, jira_ticket_id, user_id, "to", cc, subject, email_body,
                        start_date_time, expire_date_time, frequency, repeat,
                        followup_confirmation, status, jira_ticket_key, last_run_at, created_at)
@@ -183,7 +210,7 @@ VALUES ('a0000000-0000-0000-0000-00000000000a', '10003', 'test-user-123',
         '0 9 * * 1', 0, FALSE, 'ongoing',
         'PROJ-789', NOW() - INTERVAL '2 days', NOW() - INTERVAL '7 days');
 
--- 14. Expired with lastRunAt for PROJ-789 -> shows lastFollowUp
+-- 14. Expired with lastRunAt -> shows lastFollowUp
 INSERT INTO followups (id, jira_ticket_id, user_id, "to", cc, subject, email_body,
                        start_date_time, expire_date_time, frequency, repeat,
                        followup_confirmation, status, jira_ticket_key, last_run_at, created_at)
@@ -194,6 +221,18 @@ VALUES ('a0000000-0000-0000-0000-00000000000b', '10003', 'test-user-123',
         NOW() - INTERVAL '20 days', NOW() - INTERVAL '3 days',
         '0 9 * * 1', 0, FALSE, 'ongoing',
         'PROJ-789', NOW() - INTERVAL '5 days', NOW() - INTERVAL '20 days');
+
+-- 15. Followup with cc (test-user-456's ticket)
+INSERT INTO followups (id, jira_ticket_id, user_id, "to", cc, subject, email_body,
+                       start_date_time, expire_date_time, frequency, repeat,
+                       followup_confirmation, status, jira_ticket_key, last_run_at, created_at)
+VALUES ('a0000000-0000-0000-0000-00000000000f', '10004', 'test-user-456',
+        'team@example.com', 'lead@example.com,manager@example.com',
+        'PROJ-100: Cross-team sync',
+        'Quarterly planning sync for PROJ-100.',
+        NOW() - INTERVAL '1 day', NOW() + INTERVAL '45 days',
+        '0 8 * * 1', 0, TRUE, 'ongoing',
+        'PROJ-100', NOW() - INTERVAL '6 hours', NOW() - INTERVAL '1 day');
 
 -- ================================================================
 -- EMAIL THREADS
@@ -213,7 +252,7 @@ INSERT INTO email_threads (id, user_id, automation_id, gmail_thread_id, ticket_i
 VALUES ('b0000000-0000-0000-0000-000000000003', 'test-user-123',
         'a0000000-0000-0000-0000-000000000001', 'gmail-thread-3', '10001', 'open', NOW() - INTERVAL '1 day');
 
--- Thread for followup 5 (PROJ-123, replied AND expired)
+-- Thread for followup 4 (PROJ-123, replied AND expired)
 INSERT INTO email_threads (id, user_id, automation_id, gmail_thread_id, ticket_id, status, last_synced_at)
 VALUES ('b0000000-0000-0000-0000-000000000004', 'test-user-123',
         'a0000000-0000-0000-0000-000000000005', 'gmail-thread-4', '10001', 'replied', NOW() - INTERVAL '3 days');
@@ -230,3 +269,10 @@ VALUES ('b0000000-0000-0000-0000-000000000006', 'test-user-123',
 INSERT INTO email_threads (id, user_id, automation_id, gmail_thread_id, ticket_id, status, last_synced_at)
 VALUES ('b0000000-0000-0000-0000-000000000007', 'test-user-123',
         'a0000000-0000-0000-0000-00000000000a', 'gmail-thread-7', '10003', 'replied', NOW() - INTERVAL '3 days');
+
+-- Open thread for followup 15 (PROJ-100, second user)
+INSERT INTO email_threads (id, user_id, automation_id, gmail_thread_id, ticket_id, status, last_synced_at)
+VALUES ('b0000000-0000-0000-0000-000000000008', 'test-user-456',
+        'a0000000-0000-0000-0000-00000000000f', 'gmail-thread-8', '10004', 'open', NOW() - INTERVAL '12 hours');
+
+COMMIT;

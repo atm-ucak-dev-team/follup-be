@@ -48,6 +48,9 @@ type AutomationService interface {
 	// ResumeRule resumes a paused followup rule
 	ResumeRule(ctx interface{}, id string) error
 
+	// GetFollowupDetail retrieves a single followup with computed status and timestamps
+	GetFollowupDetail(ctx interface{}, id string) (*FollowupDetail, error)
+
 	// GetActiveRules retrieves all active followup rules
 	GetActiveRules(ctx interface{}) ([]*domain.Followup, error)
 

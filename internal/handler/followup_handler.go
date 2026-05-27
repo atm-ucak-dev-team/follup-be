@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -10,13 +11,17 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+var uuidRegex = regexp.MustCompile(`^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$`)
+
 type FollowupHandler struct {
 	automationService service2.AutomationService
+	jiraService       service2.JiraService
 }
 
-func NewFollowupHandler(automationService service2.AutomationService) *FollowupHandler {
+func NewFollowupHandler(automationService service2.AutomationService, jiraService service2.JiraService) *FollowupHandler {
 	return &FollowupHandler{
 		automationService: automationService,
+		jiraService:       jiraService,
 	}
 }
 
@@ -94,6 +99,71 @@ func (h *FollowupHandler) CreateFollowup(c echo.Context) error {
 	return c.JSON(http.StatusCreated, rule)
 }
 
+func (h *FollowupHandler) GetFollowup(c echo.Context) error {
+	userID := getUserIDFromContext(c)
+	if userID == "" {
+		return buildErrorResponse(c, http.StatusUnauthorized, "UNAUTHORIZED", "user not authenticated")
+	}
+
+	followupID := c.Param("id")
+	if followupID == "" {
+		return buildErrorResponse(c, http.StatusBadRequest, "MISSING_FOLLOWUP_ID", "followup ID is required")
+	}
+	if !uuidRegex.MatchString(followupID) {
+		return buildErrorResponse(c, http.StatusBadRequest, "INVALID_FOLLOWUP_ID", "followup ID must be a valid UUID")
+	}
+
+	detail, err := h.automationService.GetFollowupDetail(c.Request().Context(), followupID)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return buildErrorResponse(c, http.StatusNotFound, "FOLLOWUP_NOT_FOUND", "followup not found")
+		}
+		return buildErrorResponse(c, http.StatusInternalServerError, "FOLLOWUP_GET_FAILED", "failed to get followup: "+err.Error())
+	}
+
+	if detail.Followup.UserID != userID {
+		return buildErrorResponse(c, http.StatusForbidden, "FORBIDDEN", "you don't have permission to view this followup")
+	}
+
+	var lastFollowUpStr *string
+	if detail.Followup.LastRunAt != nil {
+		s := detail.Followup.LastRunAt.Format("2006-01-02T15:04:05Z")
+		lastFollowUpStr = &s
+	}
+
+	var sendEmailEveryStr *string
+	if detail.NextFollowUp != nil {
+		s := detail.NextFollowUp.Format("2006-01-02T15:04:05Z")
+		sendEmailEveryStr = &s
+	}
+
+	stakeholderName := "Unassigned"
+	cloudID := getCloudIDFromContext(c)
+	accessToken := getAccessTokenFromContext(c)
+	if cloudID != "" && accessToken != "" {
+		ticketID := detail.Followup.JiraTicketKey
+		if ticketID == "" {
+			ticketID = detail.Followup.JiraTicketID
+		}
+		if ticketID != "" {
+			issue, err := h.jiraService.GetIssue(c.Request().Context(), cloudID, accessToken, ticketID)
+			if err == nil && issue != nil {
+				stakeholderName = issue.Stakeholder
+			}
+		}
+	}
+
+	resp := FollowupDetailResponse{
+		Subject:         detail.Followup.Subject,
+		Status:          detail.EffectiveStatus,
+		LastFollowUp:    lastFollowUpStr,
+		StakeholderName: stakeholderName,
+		SendEmailEvery:  sendEmailEveryStr,
+	}
+
+	return c.JSON(http.StatusOK, resp)
+}
+
 type FollowupItem struct {
 	FollowupID   string  `json:"followupId"`
 	JiraTicketID string  `json:"jiraTicketId"`
@@ -124,6 +194,15 @@ type CreateFollowupRequest struct {
 	Frequency            string    `json:"frequency"`
 	Repeat               int       `json:"repeat"`
 	FollowupConfirmation bool      `json:"followupConfirmation"`
+}
+
+// FollowupDetailResponse represents the response for GET /api/v1/followups/:id
+type FollowupDetailResponse struct {
+	Subject         string  `json:"subject"`
+	Status          string  `json:"status"`
+	LastFollowUp    *string `json:"lastFollowUp"`
+	StakeholderName string  `json:"stakeholder_name"`
+	SendEmailEvery  *string `json:"send_email_every"`
 }
 
 // StatisticResponse represents the global summary without ticket-specific fields

@@ -66,6 +66,9 @@ func setDefaults() {
 
 	// IMAP Polling defaults
 	viper.SetDefault("IMAP_POLL_INTERVAL_SECONDS", 300)
+
+	// Seed defaults
+	viper.SetDefault("RUN_SEED", false)
 }
 
 // bindEnvVars binds environment variables to viper keys
@@ -102,6 +105,9 @@ func bindEnvVars() {
 
 	// IMAP Polling
 	viper.BindEnv("IMAP_POLL_INTERVAL_SECONDS", "IMAP_POLL_INTERVAL_SECONDS")
+
+	// Seed
+	viper.BindEnv("RUN_SEED", "RUN_SEED")
 }
 
 // buildConfig constructs the Config struct from viper values
@@ -139,6 +145,9 @@ func buildConfig() (*domain.Config, error) {
 
 		// IMAP Polling
 		IMAPPollIntervalSeconds: viper.GetInt("IMAP_POLL_INTERVAL_SECONDS"),
+
+		// Seed
+		RunSeed: viper.GetBool("RUN_SEED"),
 	}, nil
 }
 

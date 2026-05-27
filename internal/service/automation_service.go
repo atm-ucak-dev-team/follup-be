@@ -202,6 +202,27 @@ func (s *AutomationServiceImpl) ResumeRule(ctx interface{}, id string) error {
 	return nil
 }
 
+// GetFollowupDetail retrieves a single followup with computed status and timestamps
+func (s *AutomationServiceImpl) GetFollowupDetail(ctx interface{}, id string) (*FollowupDetail, error) {
+	contextCast, ok := ctx.(context.Context)
+	if !ok {
+		return nil, fmt.Errorf("invalid context type")
+	}
+
+	if id == "" {
+		return nil, fmt.Errorf("followup ID cannot be empty")
+	}
+
+	rule, err := s.followupRepo.GetByID(contextCast, id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get followup rule: %w", err)
+	}
+
+	d := &FollowupDetail{Followup: rule}
+	s.enrichFollowupDetail(contextCast, d)
+	return d, nil
+}
+
 // GetActiveRules retrieves all active followup rules
 func (s *AutomationServiceImpl) GetActiveRules(ctx interface{}) ([]*domain.Followup, error) {
 	contextCast, ok := ctx.(context.Context)
