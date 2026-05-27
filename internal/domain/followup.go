@@ -20,6 +20,7 @@ type Followup struct {
 	Repeat               int        `json:"repeat"`
 	FollowupConfirmation bool       `json:"followup_confirmation"`
 	Status               string     `json:"status"`
+	ExecutionCount       int        `json:"execution_count"` // Number of successful executions
 	LastRunAt            *time.Time `json:"last_run_at"`
 	CreatedAt            time.Time  `json:"created_at"`
 }
@@ -28,4 +29,6 @@ const (
 	FollowupStatusOngoing   = "ongoing"
 	FollowupStatusCompleted = "completed"
 	FollowupStatusStopped   = "stopped"
+	FollowupStatusExpired   = "expired"
+	FollowupStatusReplied   = "replied"
 )

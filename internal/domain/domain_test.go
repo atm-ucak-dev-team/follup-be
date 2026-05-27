@@ -82,18 +82,18 @@ func TestFollowupJSONSerialization(t *testing.T) {
 	now := time.Now()
 	cc := "cc@example.com"
 	rule := Followup{
-		ID:                   "automation-123",
-		UserID:               "user-123",
-		JiraTicketID:         "ticket-123",
-		JiraTicketKey:        "PROJ-123",
-		To:                   "to@example.com",
-		Cc:                   &cc,
-		Subject:              "Follow-up: PROJ-123",
-		EmailBody:            "Please review this ticket.",
-		Frequency:            "0 9 * * 1",
-		Status:               FollowupStatusOngoing,
-		LastRunAt:            &now,
-		CreatedAt:            time.Now(),
+		ID:            "automation-123",
+		UserID:        "user-123",
+		JiraTicketID:  "ticket-123",
+		JiraTicketKey: "PROJ-123",
+		To:            "to@example.com",
+		Cc:            &cc,
+		Subject:       "Follow-up: PROJ-123",
+		EmailBody:     "Please review this ticket.",
+		Frequency:     "0 9 * * 1",
+		Status:        FollowupStatusOngoing,
+		LastRunAt:     &now,
+		CreatedAt:     time.Now(),
 	}
 
 	data, err := json.Marshal(rule)

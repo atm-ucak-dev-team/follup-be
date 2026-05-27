@@ -43,12 +43,12 @@ type CreateAutomationRequest struct {
 
 // UpdateAutomationRequest represents the request body for updating a followup rule
 type UpdateAutomationRequest struct {
-	To       string `json:"to,omitempty"`
-	Cc       string `json:"cc,omitempty"`
-	Subject  string `json:"subject,omitempty"`
+	To        string `json:"to,omitempty"`
+	Cc        string `json:"cc,omitempty"`
+	Subject   string `json:"subject,omitempty"`
 	EmailBody string `json:"email_body,omitempty"`
 	Frequency string `json:"frequency,omitempty"`
-	Status   string `json:"status,omitempty"`
+	Status    string `json:"status,omitempty"`
 }
 
 // CreateAutomation handles POST /automations

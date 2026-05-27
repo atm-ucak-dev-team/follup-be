@@ -146,13 +146,16 @@ func (r *FollowupRepository) GetActiveRules(ctx context.Context) ([]*domain.Foll
 
 	// Filter for active rules only
 	rules := make([]*domain.Followup, 0, len(dataMap))
+	now := time.Now() // Get current time for startDateTime validation
+
 	for _, data := range dataMap {
 		var rule domain.Followup
 		if err := json.Unmarshal(data, &rule); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal followup: %w", err)
 		}
 
-		if rule.Status == domain.FollowupStatusOngoing {
+		// Only include rules that have started (startDateTime <= now)
+		if rule.Status == domain.FollowupStatusOngoing && rule.StartDateTime.Before(now) {
 			rules = append(rules, &rule)
 		}
 	}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/atm-ucak/follup/internal/domain"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -17,34 +18,51 @@ func NewEmailThreadRepository(pool *pgxpool.Pool) *EmailThreadRepository {
 }
 
 func (r *EmailThreadRepository) Create(ctx context.Context, thread *domain.EmailThread) error {
-	_, err := r.pool.Exec(ctx,
+	// Parse automation ID as UUID for PostgreSQL
+	automationUUID, err := uuid.Parse(thread.AutomationID)
+	if err != nil {
+		return fmt.Errorf("invalid automation UUID: %w", err)
+	}
+
+	_, err = r.pool.Exec(ctx,
 		`INSERT INTO email_threads
-		 (id, user_id, automation_id, gmail_thread_id, ticket_id, status, last_synced_at)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-		thread.ID, thread.UserID, thread.AutomationID, thread.GmailThreadID,
-		thread.TicketID, thread.Status, thread.LastSyncedAt,
+		 (id, user_id, automation_id, gmail_thread_id, ticket_id, status, body, last_synced_at)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+		thread.ID, thread.UserID, automationUUID, thread.GmailThreadID,
+		thread.TicketID, thread.Status, thread.Body, thread.LastSyncedAt,
 	)
 	return err
 }
 
 func (r *EmailThreadRepository) GetByID(ctx context.Context, id string) (*domain.EmailThread, error) {
 	var t domain.EmailThread
+	var automationUUID uuid.UUID
+
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, user_id, automation_id, gmail_thread_id, ticket_id, status, last_synced_at
+		`SELECT id, user_id, automation_id, gmail_thread_id, ticket_id, status, body, last_synced_at
 		 FROM email_threads WHERE id=$1`, id,
-	).Scan(&t.ID, &t.UserID, &t.AutomationID, &t.GmailThreadID,
-		&t.TicketID, &t.Status, &t.LastSyncedAt)
+	).Scan(&t.ID, &t.UserID, &automationUUID, &t.GmailThreadID,
+		&t.TicketID, &t.Status, &t.Body, &t.LastSyncedAt)
 	if err != nil {
 		return nil, fmt.Errorf("get email thread: %w", err)
 	}
+
+	// Convert UUID back to string for domain model
+	t.AutomationID = automationUUID.String()
 	return &t, nil
 }
 
 func (r *EmailThreadRepository) GetByAutomationID(ctx context.Context, automationID string) ([]*domain.EmailThread, error) {
+	// Parse automation ID as UUID for PostgreSQL query
+	automationUUID, err := uuid.Parse(automationID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid automation UUID: %w", err)
+	}
+
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, user_id, automation_id, gmail_thread_id, ticket_id, status, last_synced_at
+		`SELECT id, user_id, automation_id, gmail_thread_id, ticket_id, status, body, last_synced_at
 		 FROM email_threads WHERE automation_id=$1 ORDER BY last_synced_at DESC`,
-		automationID,
+		automationUUID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("query threads: %w", err)
@@ -54,10 +72,13 @@ func (r *EmailThreadRepository) GetByAutomationID(ctx context.Context, automatio
 	var threads []*domain.EmailThread
 	for rows.Next() {
 		var t domain.EmailThread
-		if err := rows.Scan(&t.ID, &t.UserID, &t.AutomationID, &t.GmailThreadID,
-			&t.TicketID, &t.Status, &t.LastSyncedAt); err != nil {
+		var automationUUID uuid.UUID
+		if err := rows.Scan(&t.ID, &t.UserID, &automationUUID, &t.GmailThreadID,
+			&t.TicketID, &t.Status, &t.Body, &t.LastSyncedAt); err != nil {
 			return nil, fmt.Errorf("scan thread: %w", err)
 		}
+		// Convert UUID back to string for domain model
+		t.AutomationID = automationUUID.String()
 		threads = append(threads, &t)
 	}
 	if threads == nil {
@@ -68,23 +89,34 @@ func (r *EmailThreadRepository) GetByAutomationID(ctx context.Context, automatio
 
 func (r *EmailThreadRepository) GetByGmailThreadID(ctx context.Context, gmailThreadID string) (*domain.EmailThread, error) {
 	var t domain.EmailThread
+	var automationUUID uuid.UUID
+
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, user_id, automation_id, gmail_thread_id, ticket_id, status, last_synced_at
+		`SELECT id, user_id, automation_id, gmail_thread_id, ticket_id, status, body, last_synced_at
 		 FROM email_threads WHERE gmail_thread_id=$1`, gmailThreadID,
-	).Scan(&t.ID, &t.UserID, &t.AutomationID, &t.GmailThreadID,
-		&t.TicketID, &t.Status, &t.LastSyncedAt)
+	).Scan(&t.ID, &t.UserID, &automationUUID, &t.GmailThreadID,
+		&t.TicketID, &t.Status, &t.Body, &t.LastSyncedAt)
 	if err != nil {
 		return nil, fmt.Errorf("get thread by gmail id: %w", err)
 	}
+
+	// Convert UUID back to string for domain model
+	t.AutomationID = automationUUID.String()
 	return &t, nil
 }
 
 func (r *EmailThreadRepository) Update(ctx context.Context, thread *domain.EmailThread) error {
-	_, err := r.pool.Exec(ctx,
+	// Parse automation ID as UUID for PostgreSQL
+	automationUUID, err := uuid.Parse(thread.AutomationID)
+	if err != nil {
+		return fmt.Errorf("invalid automation UUID: %w", err)
+	}
+
+	_, err = r.pool.Exec(ctx,
 		`UPDATE email_threads SET user_id=$2, automation_id=$3, gmail_thread_id=$4,
-		 ticket_id=$5, status=$6, last_synced_at=$7 WHERE id=$1`,
-		thread.ID, thread.UserID, thread.AutomationID, thread.GmailThreadID,
-		thread.TicketID, thread.Status, thread.LastSyncedAt,
+		 ticket_id=$5, status=$6, body=$7, last_synced_at=$8 WHERE id=$1`,
+		thread.ID, thread.UserID, automationUUID, thread.GmailThreadID,
+		thread.TicketID, thread.Status, thread.Body, thread.LastSyncedAt,
 	)
 	return err
 }

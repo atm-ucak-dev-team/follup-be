@@ -1,0 +1,6 @@
+BEGIN;
+
+ALTER TABLE followups
+    ADD COLUMN IF NOT EXISTS execution_count INTEGER NOT NULL DEFAULT 0;
+
+COMMIT;

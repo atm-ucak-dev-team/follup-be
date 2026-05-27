@@ -82,6 +82,7 @@ func (h *FollowupHandler) CreateFollowup(c echo.Context) error {
 		Frequency:            req.Frequency,
 		Repeat:               req.Repeat,
 		FollowupConfirmation: req.FollowupConfirmation,
+		ExecutionCount:       0, // Initialize execution count to 0
 	}
 
 	if err := h.automationService.CreateRule(c.Request().Context(), rule); err != nil {

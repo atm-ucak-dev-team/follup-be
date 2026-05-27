@@ -55,6 +55,55 @@ func (m *MockFollowupRepository) Delete(ctx context.Context, id string) error {
 	return args.Error(0)
 }
 
+// MockEmailThreadRepository is a mock for testing
+type MockEmailThreadRepository struct {
+	mock.Mock
+}
+
+func (m *MockEmailThreadRepository) Create(ctx context.Context, thread *domain.EmailThread) error {
+	args := m.Called(ctx, thread)
+	return args.Error(0)
+}
+
+func (m *MockEmailThreadRepository) GetByID(ctx context.Context, id string) (*domain.EmailThread, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.EmailThread), args.Error(1)
+}
+
+func (m *MockEmailThreadRepository) GetByAutomationID(ctx context.Context, automationID string) ([]*domain.EmailThread, error) {
+	args := m.Called(ctx, automationID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.EmailThread), args.Error(1)
+}
+
+func (m *MockEmailThreadRepository) GetByGmailThreadID(ctx context.Context, gmailThreadID string) (*domain.EmailThread, error) {
+	args := m.Called(ctx, gmailThreadID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.EmailThread), args.Error(1)
+}
+
+func (m *MockEmailThreadRepository) Update(ctx context.Context, thread *domain.EmailThread) error {
+	args := m.Called(ctx, thread)
+	return args.Error(0)
+}
+
+func (m *MockEmailThreadRepository) UpdateThreadStatus(ctx context.Context, threadID, status string) error {
+	args := m.Called(ctx, threadID, status)
+	return args.Error(0)
+}
+
+func (m *MockEmailThreadRepository) Delete(ctx context.Context, id string) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
 // MockEmailService is a mock for testing
 type MockEmailService struct {
 	mock.Mock
@@ -88,8 +137,8 @@ func (m *MockEmailService) DecryptPassword(encryptedPassword string) (string, er
 	return args.String(0), args.Error(1)
 }
 
-func (m *MockEmailService) SaveCredential(ctx context.Context, userID, email, password string) error {
-	args := m.Called(ctx, userID, email, password)
+func (m *MockEmailService) SaveCredential(ctx context.Context, userID, email, password, imapHost, smtpHost string) error {
+	args := m.Called(ctx, userID, email, password, imapHost, smtpHost)
 	return args.Error(0)
 }
 
@@ -117,7 +166,7 @@ func TestScheduler_Start_LoadsActiveRules(t *testing.T) {
 			JiraTicketID:  "ticket-1",
 			JiraTicketKey: "PROJ-123",
 			To:            "test@example.com",
-			Frequency:  "0 9 * * 1", // Every Monday at 9 AM
+			Frequency:     "0 9 * * 1", // Every Monday at 9 AM
 			Status:        domain.FollowupStatusOngoing,
 			CreatedAt:     now,
 		},
@@ -127,7 +176,7 @@ func TestScheduler_Start_LoadsActiveRules(t *testing.T) {
 			JiraTicketID:  "ticket-2",
 			JiraTicketKey: "PROJ-456",
 			To:            "test@example.com",
-			Frequency:  "0 */2 * * *", // Every 2 hours
+			Frequency:     "0 */2 * * *", // Every 2 hours
 			Status:        domain.FollowupStatusOngoing,
 			CreatedAt:     now,
 		},
@@ -137,7 +186,8 @@ func TestScheduler_Start_LoadsActiveRules(t *testing.T) {
 	mockRepo.On("GetActiveRules", mock.Anything).Return(activeRules, nil)
 
 	// Create scheduler
-	scheduler := NewScheduler(mockRepo, mockEmailService)
+	mockEmailThreadRepo := new(MockEmailThreadRepository)
+	scheduler := NewScheduler(mockRepo, mockEmailService, mockEmailThreadRepo)
 
 	// Start scheduler
 	err := scheduler.Start()
@@ -158,7 +208,8 @@ func TestScheduler_AddRule_Success(t *testing.T) {
 	mockRepo := new(MockFollowupRepository)
 	mockEmailService := new(MockEmailService)
 
-	scheduler := NewScheduler(mockRepo, mockEmailService)
+	mockEmailThreadRepo := new(MockEmailThreadRepository)
+	scheduler := NewScheduler(mockRepo, mockEmailService, mockEmailThreadRepo)
 
 	rule := domain.Followup{
 		ID:            "rule-1",
@@ -166,7 +217,7 @@ func TestScheduler_AddRule_Success(t *testing.T) {
 		JiraTicketID:  "ticket-1",
 		JiraTicketKey: "PROJ-123",
 		To:            "test@example.com",
-		Frequency:  "0 9 * * *", // Daily at 9 AM
+		Frequency:     "0 9 * * *", // Daily at 9 AM
 		Status:        domain.FollowupStatusOngoing,
 	}
 
@@ -186,7 +237,8 @@ func TestScheduler_AddRule_InvalidCron(t *testing.T) {
 	mockRepo := new(MockFollowupRepository)
 	mockEmailService := new(MockEmailService)
 
-	scheduler := NewScheduler(mockRepo, mockEmailService)
+	mockEmailThreadRepo := new(MockEmailThreadRepository)
+	scheduler := NewScheduler(mockRepo, mockEmailService, mockEmailThreadRepo)
 
 	rule := domain.Followup{
 		ID:            "rule-1",
@@ -194,7 +246,7 @@ func TestScheduler_AddRule_InvalidCron(t *testing.T) {
 		JiraTicketID:  "ticket-1",
 		JiraTicketKey: "PROJ-123",
 		To:            "test@example.com",
-		Frequency:  "invalid-cron", // Invalid cron expression
+		Frequency:     "invalid-cron", // Invalid cron expression
 		Status:        domain.FollowupStatusOngoing,
 	}
 
@@ -215,7 +267,8 @@ func TestScheduler_AddRule_EmptyCron(t *testing.T) {
 	mockRepo := new(MockFollowupRepository)
 	mockEmailService := new(MockEmailService)
 
-	scheduler := NewScheduler(mockRepo, mockEmailService)
+	mockEmailThreadRepo := new(MockEmailThreadRepository)
+	scheduler := NewScheduler(mockRepo, mockEmailService, mockEmailThreadRepo)
 
 	rule := domain.Followup{
 		ID:            "rule-1",
@@ -223,7 +276,7 @@ func TestScheduler_AddRule_EmptyCron(t *testing.T) {
 		JiraTicketID:  "ticket-1",
 		JiraTicketKey: "PROJ-123",
 		To:            "test@example.com",
-		Frequency:  "", // Empty cron expression
+		Frequency:     "", // Empty cron expression
 		Status:        domain.FollowupStatusOngoing,
 	}
 
@@ -240,7 +293,8 @@ func TestScheduler_RemoveRule_Success(t *testing.T) {
 	mockRepo := new(MockFollowupRepository)
 	mockEmailService := new(MockEmailService)
 
-	scheduler := NewScheduler(mockRepo, mockEmailService)
+	mockEmailThreadRepo := new(MockEmailThreadRepository)
+	scheduler := NewScheduler(mockRepo, mockEmailService, mockEmailThreadRepo)
 
 	rule := domain.Followup{
 		ID:            "rule-1",
@@ -248,7 +302,7 @@ func TestScheduler_RemoveRule_Success(t *testing.T) {
 		JiraTicketID:  "ticket-1",
 		JiraTicketKey: "PROJ-123",
 		To:            "test@example.com",
-		Frequency:  "0 9 * * *",
+		Frequency:     "0 9 * * *",
 		Status:        domain.FollowupStatusOngoing,
 	}
 
@@ -274,7 +328,8 @@ func TestScheduler_RemoveRule_NonExistent(t *testing.T) {
 	mockRepo := new(MockFollowupRepository)
 	mockEmailService := new(MockEmailService)
 
-	scheduler := NewScheduler(mockRepo, mockEmailService)
+	mockEmailThreadRepo := new(MockEmailThreadRepository)
+	scheduler := NewScheduler(mockRepo, mockEmailService, mockEmailThreadRepo)
 
 	// Try to remove non-existent rule (should not panic, just log)
 	scheduler.RemoveRule("non-existent-rule")
@@ -291,7 +346,8 @@ func TestScheduler_JobExecution_Success(t *testing.T) {
 	mockRepo := new(MockFollowupRepository)
 	mockEmailService := new(MockEmailService)
 
-	scheduler := NewScheduler(mockRepo, mockEmailService)
+	mockEmailThreadRepo := new(MockEmailThreadRepository)
+	scheduler := NewScheduler(mockRepo, mockEmailService, mockEmailThreadRepo)
 
 	rule := domain.Followup{
 		ID:            "rule-1",
@@ -299,7 +355,7 @@ func TestScheduler_JobExecution_Success(t *testing.T) {
 		JiraTicketID:  "ticket-1",
 		JiraTicketKey: "PROJ-123",
 		To:            "test@example.com",
-		Frequency:  "* * * * *", // Every minute for testing
+		Frequency:     "* * * * *", // Every minute for testing
 		Status:        domain.FollowupStatusOngoing,
 	}
 
@@ -328,7 +384,8 @@ func TestScheduler_RuleStatusChange_SyncsCorrectly(t *testing.T) {
 	mockRepo := new(MockFollowupRepository)
 	mockEmailService := new(MockEmailService)
 
-	scheduler := NewScheduler(mockRepo, mockEmailService)
+	mockEmailThreadRepo := new(MockEmailThreadRepository)
+	scheduler := NewScheduler(mockRepo, mockEmailService, mockEmailThreadRepo)
 
 	rule := domain.Followup{
 		ID:            "rule-1",
@@ -336,7 +393,7 @@ func TestScheduler_RuleStatusChange_SyncsCorrectly(t *testing.T) {
 		JiraTicketID:  "ticket-1",
 		JiraTicketKey: "PROJ-123",
 		To:            "test@example.com",
-		Frequency:  "0 9 * * *",
+		Frequency:     "0 9 * * *",
 		Status:        domain.FollowupStatusOngoing,
 	}
 
@@ -372,7 +429,8 @@ func TestScheduler_Start_RepositoryError(t *testing.T) {
 	// Set up mock to return error
 	mockRepo.On("GetActiveRules", mock.Anything).Return(nil, assert.AnError)
 
-	scheduler := NewScheduler(mockRepo, mockEmailService)
+	mockEmailThreadRepo := new(MockEmailThreadRepository)
+	scheduler := NewScheduler(mockRepo, mockEmailService, mockEmailThreadRepo)
 
 	// Start should return error
 	err := scheduler.Start()
@@ -388,7 +446,8 @@ func TestScheduler_AddRule_DuplicateRule(t *testing.T) {
 	mockRepo := new(MockFollowupRepository)
 	mockEmailService := new(MockEmailService)
 
-	scheduler := NewScheduler(mockRepo, mockEmailService)
+	mockEmailThreadRepo := new(MockEmailThreadRepository)
+	scheduler := NewScheduler(mockRepo, mockEmailService, mockEmailThreadRepo)
 
 	rule := domain.Followup{
 		ID:            "rule-1",
@@ -396,7 +455,7 @@ func TestScheduler_AddRule_DuplicateRule(t *testing.T) {
 		JiraTicketID:  "ticket-1",
 		JiraTicketKey: "PROJ-123",
 		To:            "test@example.com",
-		Frequency:  "0 9 * * *",
+		Frequency:     "0 9 * * *",
 		Status:        domain.FollowupStatusOngoing,
 	}
 
@@ -430,7 +489,7 @@ func TestScheduler_GracefulShutdown(t *testing.T) {
 			JiraTicketID:  "ticket-1",
 			JiraTicketKey: "PROJ-123",
 			To:            "test@example.com",
-			Frequency:  "0 9 * * *",
+			Frequency:     "0 9 * * *",
 			Status:        domain.FollowupStatusOngoing,
 			CreatedAt:     now,
 		},
@@ -439,7 +498,8 @@ func TestScheduler_GracefulShutdown(t *testing.T) {
 	// Set up mock expectations
 	mockRepo.On("GetActiveRules", mock.Anything).Return(activeRules, nil)
 
-	scheduler := NewScheduler(mockRepo, mockEmailService)
+	mockEmailThreadRepo := new(MockEmailThreadRepository)
+	scheduler := NewScheduler(mockRepo, mockEmailService, mockEmailThreadRepo)
 
 	// Start scheduler
 	err := scheduler.Start()

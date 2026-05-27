@@ -8,18 +8,18 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/atm-ucak/follup/internal/domain"
 	"github.com/atm-ucak/follup/internal/repository"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 // AuthServiceImpl implements the AuthService interface
 type AuthServiceImpl struct {
-	userRepo       repository.UserRepository
-	oauthRepo      repository.OAuthTokenRepository
+	userRepo     repository.UserRepository
+	oauthRepo    repository.OAuthTokenRepository
 	followupRepo repository.FollowupRepository
-	config         *domain.Config
-	httpClient     *http.Client
+	config       *domain.Config
+	httpClient   *http.Client
 }
 
 // NewAuthService creates a new AuthService instance
@@ -30,10 +30,10 @@ func NewAuthService(
 	config *domain.Config,
 ) AuthService {
 	return &AuthServiceImpl{
-		userRepo:       userRepo,
-		oauthRepo:      oauthRepo,
+		userRepo:     userRepo,
+		oauthRepo:    oauthRepo,
 		followupRepo: followupRepo,
-		config:         config,
+		config:       config,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},

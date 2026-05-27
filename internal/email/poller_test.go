@@ -49,7 +49,7 @@ func (m *mockEmailService) CheckForReplies(ctx interface{}) error {
 	return nil
 }
 
-func (m *mockEmailService) SaveCredential(ctx context.Context, userID, email, password string) error {
+func (m *mockEmailService) SaveCredential(ctx context.Context, userID, email, password, imapHost, smtpHost string) error {
 	return nil
 }
 
@@ -525,7 +525,7 @@ func TestPoller_matchMessageToThread(t *testing.T) {
 
 			// Since we can't easily create a proper imap.Message in tests,
 			// we'll skip the full matchMessageToThread test and just test the findMatchingThread method
-			threadID, err := poller.findMatchingThread(context.Background(), "user-1", "message-123@example.com")
+			threadID, err := poller.findMatchingThread(context.Background(), "user-1", "message-123@example.com", "", "")
 
 			if tt.expectError {
 				assert.Error(t, err)
@@ -546,7 +546,7 @@ func TestPoller_findMatchingThread(t *testing.T) {
 	poller := NewPoller(mockEmail, mockAutomation, mockThread, 100*time.Millisecond)
 
 	// Test finding matching thread (currently returns empty as placeholder)
-	threadID, err := poller.findMatchingThread(context.Background(), "user-1", "message-123@example.com")
+	threadID, err := poller.findMatchingThread(context.Background(), "user-1", "message-123@example.com", "", "")
 
 	assert.NoError(t, err)
 	assert.Empty(t, threadID, "Should return empty thread ID for placeholder implementation")
@@ -760,7 +760,7 @@ func TestPoller_findMatchingThread_PlaceholderLogic(t *testing.T) {
 	}
 
 	for _, messageID := range testCases {
-		threadID, err := poller.findMatchingThread(context.Background(), "user-1", messageID)
+		threadID, err := poller.findMatchingThread(context.Background(), "user-1", messageID, "", "")
 		assert.NoError(t, err, "Should not return error for message ID: %s", messageID)
 		assert.Empty(t, threadID, "Placeholder implementation should return empty thread ID")
 	}
@@ -779,7 +779,7 @@ func TestPoller_UpdateThreadStatus_Failure(t *testing.T) {
 	poller := NewPoller(mockEmail, mockAutomation, mockThread, 100*time.Millisecond)
 
 	// The findMatchingThread method should handle this gracefully
-	threadID, err := poller.findMatchingThread(context.Background(), "user-1", "message-123@example.com")
+	threadID, err := poller.findMatchingThread(context.Background(), "user-1", "message-123@example.com", "", "")
 	assert.NoError(t, err, "Should not return error even if thread update would fail")
 	assert.Empty(t, threadID, "Should return empty thread ID")
 }

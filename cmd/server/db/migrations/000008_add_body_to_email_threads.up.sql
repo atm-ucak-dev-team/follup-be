@@ -1,0 +1,6 @@
+BEGIN;
+
+ALTER TABLE email_threads
+    ADD COLUMN IF NOT EXISTS body TEXT;
+
+COMMIT;

@@ -60,11 +60,11 @@ type AutomationService interface {
 	// ListFollowupDetails retrieves followups with computed status and timestamps
 	ListFollowupDetails(ctx interface{}, userID string, jiraTicketID string) ([]*FollowupDetail, error)
 
-// GetSummary returns summary counts for a specific jira ticket
-GetSummary(ctx interface{}, userID string, jiraTicketID string) (*FollowupSummary, error)
+	// GetSummary returns summary counts for a specific jira ticket
+	GetSummary(ctx interface{}, userID string, jiraTicketID string) (*FollowupSummary, error)
 
-// GetGlobalSummary returns summary counts across all jira tickets for a user
-GetGlobalSummary(ctx interface{}, userID string) (*FollowupSummary, error)
+	// GetGlobalSummary returns summary counts across all jira tickets for a user
+	GetGlobalSummary(ctx interface{}, userID string) (*FollowupSummary, error)
 }
 
 // FollowupSummary represents the summary counts for a jira ticket
@@ -79,7 +79,7 @@ type FollowupSummary struct {
 // FollowupDetail represents a followup with computed status and timestamps
 type FollowupDetail struct {
 	Followup        *domain.Followup
-	EffectiveStatus string     // "ongoing", "replied", "expired"
+	EffectiveStatus string // "ongoing", "replied", "expired"
 	RepliedAt       *time.Time
 	NextFollowUp    *time.Time
 }
@@ -102,7 +102,7 @@ type EmailService interface {
 	DecryptPassword(encryptedPassword string) (string, error)
 
 	// SaveCredential saves email credentials with encryption
-	SaveCredential(ctx context.Context, userID, email, password string) error
+	SaveCredential(ctx context.Context, userID, email, password, imapHost, smtpHost string) error
 
 	// SendFollowUpByAutomation sends a follow-up email based on automation ID
 	SendFollowUpByAutomation(ctx context.Context, automationID string) error
