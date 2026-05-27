@@ -175,6 +175,7 @@ func main() {
 
 	// Followup routes
 	api.POST("/followups", followupHandler.CreateFollowup)
+	api.GET("/followups/:id", followupHandler.GetFollowup)
 	api.GET("/followup", followupHandler.ListFollowups)
 	api.GET("/:jiraTicketID/followups", followupHandler.GetFollowupsByTicketID)
 	api.GET("/:jiraTicketID/summary", followupHandler.GetSummary)
