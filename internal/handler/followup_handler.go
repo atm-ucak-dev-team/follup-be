@@ -162,7 +162,14 @@ func (h *FollowupHandler) GetFollowup(c echo.Context) error {
 	// Query email threads by automation ID
 	threads := make([]ThreadItem, 0)
 	emailThreads, err := h.emailThreadRepo.GetByAutomationID(c.Request().Context(), followupID)
-	log.Printf("Retrieved %d email threads for followup %s", len(emailThreads), followupID)
+	if err != nil {
+		log.Printf("Error retrieving email threads for followup %s: %v", followupID, err)
+	} else {
+		log.Printf("Retrieved %d email threads for followup %s", len(emailThreads), followupID)
+		for i, thread := range emailThreads {
+			log.Printf("Thread %d: ID=%s, GmailID=%s, Status=%s", i+1, thread.ID, thread.GmailThreadID, thread.Status)
+		}
+	}
 	if err == nil && emailThreads != nil {
 		for _, et := range emailThreads {
 			threads = append(threads, ThreadItem{
