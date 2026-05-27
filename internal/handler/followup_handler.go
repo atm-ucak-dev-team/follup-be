@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log"
 	"net/http"
 	"regexp"
 	"strings"
@@ -161,6 +162,14 @@ func (h *FollowupHandler) GetFollowup(c echo.Context) error {
 	// Query email threads by automation ID
 	threads := make([]ThreadItem, 0)
 	emailThreads, err := h.emailThreadRepo.GetByAutomationID(c.Request().Context(), followupID)
+	if err != nil {
+		log.Printf("Error retrieving email threads for followup %s: %v", followupID, err)
+	} else {
+		log.Printf("Retrieved %d email threads for followup %s", len(emailThreads), followupID)
+		for i, thread := range emailThreads {
+			log.Printf("Thread %d: ID=%s, GmailID=%s, Status=%s", i+1, thread.ID, thread.GmailThreadID, thread.Status)
+		}
+	}
 	if err == nil && emailThreads != nil {
 		for _, et := range emailThreads {
 			threads = append(threads, ThreadItem{
@@ -185,13 +194,16 @@ func (h *FollowupHandler) GetFollowup(c echo.Context) error {
 	}
 
 	resp := FollowupDetailResponse{
-		Subject:         detail.Followup.Subject,
-		Status:          detail.EffectiveStatus,
-		LastFollowUp:    lastFollowUpStr,
-		StakeholderName: stakeholderName,
-		SendEmailEvery:  sendEmailEveryStr,
-		Threads:         threads,
-		Suggestion:      suggestion,
+		Subject:          detail.Followup.Subject,
+		Status:           detail.EffectiveStatus,
+		ExpireDateTime:   detail.Followup.ExpireDateTime.Format("2006-01-02T15:04:05Z"),
+		LastFollowUp:     lastFollowUpStr,
+		StakeholderName:  stakeholderName,
+		SendEmailEvery:   sendEmailEveryStr,
+		Threads:          threads,
+		Suggestion:       suggestion,
+		JiraTicketTitle:  detail.Followup.JiraTicketTitle,
+		JiraTicketStatus: detail.Followup.JiraTicketStatus,
 	}
 
 	return c.JSON(http.StatusOK, resp)
@@ -244,13 +256,16 @@ type ThreadItem struct {
 
 // FollowupDetailResponse represents the response for GET /api/v1/followups/:id
 type FollowupDetailResponse struct {
-	Subject         string       `json:"subject"`
-	Status          string       `json:"status"`
-	LastFollowUp    *string      `json:"lastFollowUp"`
-	StakeholderName string       `json:"stakeholderName"`
-	SendEmailEvery  *string      `json:"sendEmailEvery"`
-	Threads         []ThreadItem `json:"threads"`
-	Suggestion      string       `json:"suggestion"`
+	Subject          string       `json:"subject"`
+	Status           string       `json:"status"`
+	ExpireDateTime   string       `json:"expireDateTime"`
+	LastFollowUp     *string      `json:"lastFollowUp"`
+	StakeholderName  string       `json:"stakeholderName"`
+	SendEmailEvery   *string      `json:"sendEmailEvery"`
+	Threads          []ThreadItem `json:"threads"`
+	Suggestion       string       `json:"suggestion"`
+	JiraTicketTitle  string       `json:"jiraTicketTitle"`
+	JiraTicketStatus string       `json:"jiraTicketStatus"`
 }
 
 // StatisticResponse represents the global summary without ticket-specific fields
