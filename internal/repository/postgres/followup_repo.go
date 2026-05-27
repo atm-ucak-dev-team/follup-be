@@ -23,16 +23,23 @@ func scanFollowup(scanner interface {
 }) (*domain.Followup, error) {
 	var f domain.Followup
 	var cc *string
+	var executionCount *int // Use pointer for NULL handling
 	err := scanner.Scan(
 		&f.ID, &f.JiraTicketID, &f.UserID, &f.To, &cc,
 		&f.Subject, &f.EmailBody, &f.StartDateTime, &f.ExpireDateTime,
 		&f.Frequency, &f.Repeat, &f.FollowupConfirmation, &f.Status,
-		&f.JiraTicketKey, &f.LastRunAt, &f.CreatedAt,
+		&executionCount, &f.JiraTicketKey, &f.LastRunAt, &f.CreatedAt,
 	)
 	if err != nil {
 		return nil, err
 	}
 	f.Cc = cc
+	// Code-level default: NULL execution_count means 0
+	if executionCount != nil {
+		f.ExecutionCount = *executionCount
+	} else {
+		f.ExecutionCount = 0
+	}
 	return &f, nil
 }
 
@@ -55,12 +62,12 @@ func (r *FollowupRepository) Create(ctx context.Context, rule *domain.Followup) 
 		`INSERT INTO followups
 		 (id, jira_ticket_id, user_id, "to", cc, subject, email_body,
 		  start_date_time, expire_date_time, frequency, repeat,
-		  followup_confirmation, status, jira_ticket_key, last_run_at, created_at)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+		  followup_confirmation, status, execution_count, jira_ticket_key, last_run_at, created_at)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
 		rule.ID, rule.JiraTicketID, rule.UserID, rule.To, rule.Cc,
 		rule.Subject, rule.EmailBody, rule.StartDateTime, rule.ExpireDateTime,
 		rule.Frequency, rule.Repeat, rule.FollowupConfirmation, rule.Status,
-		rule.JiraTicketKey, rule.LastRunAt, rule.CreatedAt,
+		rule.ExecutionCount, rule.JiraTicketKey, rule.LastRunAt, rule.CreatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("insert followup: %w", err)
@@ -72,7 +79,7 @@ func (r *FollowupRepository) GetByID(ctx context.Context, id string) (*domain.Fo
 	row := r.pool.QueryRow(ctx,
 		`SELECT id, jira_ticket_id, user_id, "to", cc, subject, email_body,
 		        start_date_time, expire_date_time, frequency, repeat,
-		        followup_confirmation, status,
+		        followup_confirmation, status, execution_count,
 		        jira_ticket_key, last_run_at, created_at
 		 FROM followups WHERE id = $1`, id,
 	)
@@ -83,7 +90,7 @@ func (r *FollowupRepository) GetByUserID(ctx context.Context, userID string) ([]
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, jira_ticket_id, user_id, "to", cc, subject, email_body,
 		        start_date_time, expire_date_time, frequency, repeat,
-		        followup_confirmation, status,
+		        followup_confirmation, status, execution_count,
 		        jira_ticket_key, last_run_at, created_at
 		 FROM followups WHERE user_id = $1 ORDER BY id`, userID,
 	)
@@ -110,9 +117,11 @@ func (r *FollowupRepository) GetActiveRules(ctx context.Context) ([]*domain.Foll
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, jira_ticket_id, user_id, "to", cc, subject, email_body,
 		        start_date_time, expire_date_time, frequency, repeat,
-		        followup_confirmation, status,
+		        followup_confirmation, status, execution_count,
 		        jira_ticket_key, last_run_at, created_at
-		 FROM followups WHERE status = 'ongoing'`,
+		 FROM followups
+		 WHERE status = 'ongoing'
+		 AND start_date_time <= NOW()`,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("query active followups: %w", err)
@@ -138,12 +147,12 @@ func (r *FollowupRepository) Update(ctx context.Context, rule *domain.Followup) 
 		`UPDATE followups SET
 		 jira_ticket_id=$2, user_id=$3, "to"=$4, cc=$5, subject=$6, email_body=$7,
 		 start_date_time=$8, expire_date_time=$9, frequency=$10, repeat=$11,
-		 followup_confirmation=$12, status=$13, jira_ticket_key=$14, last_run_at=$15
+		 followup_confirmation=$12, status=$13, execution_count=$14, jira_ticket_key=$15, last_run_at=$16
 		 WHERE id=$1`,
 		rule.ID, rule.JiraTicketID, rule.UserID, rule.To, rule.Cc,
 		rule.Subject, rule.EmailBody, rule.StartDateTime, rule.ExpireDateTime,
 		rule.Frequency, rule.Repeat, rule.FollowupConfirmation, rule.Status,
-		rule.JiraTicketKey, rule.LastRunAt,
+		rule.ExecutionCount, rule.JiraTicketKey, rule.LastRunAt,
 	)
 	return err
 }

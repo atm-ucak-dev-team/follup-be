@@ -123,7 +123,7 @@ func createTestFollowup() *domain.Followup {
 		JiraTicketID:  "ticket-456",
 		JiraTicketKey: "PROJ-123",
 		To:            "test@example.com",
-		Frequency:  "0 9 * * 1",
+		Frequency:     "0 9 * * 1",
 		Status:        domain.FollowupStatusOngoing,
 	}
 }
@@ -285,7 +285,7 @@ func TestCreateAutomation_MissingAuthToken(t *testing.T) {
 		JiraTicketID:  "ticket-456",
 		JiraTicketKey: "PROJ-123",
 		To:            "test@example.com",
-		Frequency:  "0 9 * * 1",
+		Frequency:     "0 9 * * 1",
 	}
 
 	bodyJSON, _ := json.Marshal(reqBody)
@@ -325,7 +325,7 @@ func TestListAutomations_Success(t *testing.T) {
 			JiraTicketID:  "ticket-789",
 			JiraTicketKey: "PROJ-456",
 			To:            "test@example.com",
-			Frequency:  "0 17 * * 5",
+			Frequency:     "0 17 * * 5",
 			Status:        domain.FollowupStatusOngoing,
 		},
 	}
@@ -448,7 +448,7 @@ func TestUpdateAutomation_Success(t *testing.T) {
 	})).Return(nil)
 
 	reqBody := UpdateAutomationRequest{
-		To:            "updated@example.com",
+		To: "updated@example.com",
 	}
 
 	bodyJSON, _ := json.Marshal(reqBody)

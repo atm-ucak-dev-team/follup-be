@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/atm-ucak/follup/internal/domain"
+	"github.com/atm-ucak/follup/internal/frequency"
 	"github.com/atm-ucak/follup/internal/repository"
 	"github.com/robfig/cron/v3"
 )
@@ -447,8 +448,22 @@ func (s *AutomationServiceImpl) validateRule(rule *domain.Followup) error {
 		return fmt.Errorf("frequency is required")
 	}
 
-	if _, err := cron.ParseStandard(rule.Frequency); err != nil {
-		return fmt.Errorf("invalid frequency: %w", err)
+	// Handle both user-friendly frequencies ("Daily") and cron expressions
+	if frequency.IsConvertibleFrequency(rule.Frequency) {
+		// Convert user-friendly frequency to cron expression to validate
+		if _, err := frequency.FrequencyToCron(rule.Frequency, rule.StartDateTime); err != nil {
+			return fmt.Errorf("failed to convert frequency: %w", err)
+		}
+	} else {
+		// Validate as cron expression directly
+		if _, err := cron.ParseStandard(rule.Frequency); err != nil {
+			return fmt.Errorf("invalid frequency/cron expression: %w", err)
+		}
+	}
+
+	// Validate startDateTime is not zero
+	if rule.StartDateTime.IsZero() {
+		return fmt.Errorf("start_date_time is required")
 	}
 
 	if rule.Status != "" &&

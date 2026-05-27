@@ -23,6 +23,8 @@ func NewEmailHandler(emailService service.EmailService) *EmailHandler {
 type SaveCredentialsRequest struct {
 	EmailAddress string `json:"email_address" validate:"required,email"`
 	Password     string `json:"password" validate:"required"`
+	IMAPHost     string `json:"imap_host"` // optional, defaults to config
+	SMTPHost     string `json:"smtp_host"` // optional, defaults to config
 }
 
 // CredentialsResponse represents the response for getting credentials (excluding password)
@@ -54,7 +56,7 @@ func (h *EmailHandler) SaveCredentials(c echo.Context) error {
 	}
 
 	// Call email service to save credentials
-	err := h.emailService.SaveCredential(c.Request().Context(), userID, req.EmailAddress, req.Password)
+	err := h.emailService.SaveCredential(c.Request().Context(), userID, req.EmailAddress, req.Password, req.IMAPHost, req.SMTPHost)
 	if err != nil {
 		// Log security event for credential operations
 		logSecurityEvent("credential_save_failed", userID, req.EmailAddress, err.Error())

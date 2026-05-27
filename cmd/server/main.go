@@ -115,7 +115,7 @@ func main() {
 	log.Println("Initialized handlers")
 
 	// 6. Init cron scheduler (inject services)
-	scheduler := cron.NewScheduler(followupRepo, emailService)
+	scheduler := cron.NewScheduler(followupRepo, emailService, emailThreadRepo)
 	if err := scheduler.Start(); err != nil {
 		log.Fatal("Failed to start cron scheduler:", err)
 	}

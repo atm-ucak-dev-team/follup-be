@@ -215,11 +215,11 @@ func (p *Poller) fetchAndMatchMessages(ctx context.Context, imapClient *client.C
 	seqset := new(imap.SeqSet)
 	seqset.AddNum(uids...)
 
-	// Fetch only the headers we need for matching
+	// Fetch envelope headers for proper thread matching
 	messages := make(chan *imap.Message, len(uids))
 	items := []imap.FetchItem{
-		imap.FetchBody,
 		imap.FetchEnvelope,
+		imap.FetchFlags,
 	}
 
 	if err := imapClient.Fetch(seqset, items, messages); err != nil {
@@ -244,9 +244,15 @@ func (p *Poller) fetchAndMatchMessages(ctx context.Context, imapClient *client.C
 // matchMessageToThread matches a message to existing threads and updates status
 func (p *Poller) matchMessageToThread(ctx context.Context, msg *imap.Message, userID string) error {
 	// Extract message headers
-	var messageID string
+	var messageID, inReplyTo, references string
 	if msg.Envelope != nil {
 		messageID = msg.Envelope.MessageId
+		// InReplyTo is a slice of message IDs
+		if len(msg.Envelope.InReplyTo) > 0 {
+			inReplyTo = string(msg.Envelope.InReplyTo[0])
+		}
+		// References header may not be directly available in Envelope
+		// We'll need to handle this case in the IMAP processing
 	}
 
 	if messageID == "" {
@@ -254,7 +260,7 @@ func (p *Poller) matchMessageToThread(ctx context.Context, msg *imap.Message, us
 	}
 
 	// Try to find matching thread
-	threadID, err := p.findMatchingThread(ctx, userID, messageID)
+	threadID, err := p.findMatchingThread(ctx, userID, messageID, inReplyTo, references)
 	if err != nil {
 		return err
 	}
@@ -264,27 +270,95 @@ func (p *Poller) matchMessageToThread(ctx context.Context, msg *imap.Message, us
 		return nil
 	}
 
-	// Update thread status to 'replied'
+	// Update email thread status to 'replied'
 	if err := p.emailThreadRepo.UpdateThreadStatus(ctx, threadID, domain.EmailThreadStatusReplied); err != nil {
 		return fmt.Errorf("failed to update thread status: %w", err)
+	}
+
+	// Get thread details to find associated followup
+	thread, err := p.emailThreadRepo.GetByID(ctx, threadID)
+	if err != nil {
+		return fmt.Errorf("failed to get thread: %w", err)
+	}
+
+	// Update followup status to 'replied'
+	followup, err := p.followupRepo.GetByID(ctx, thread.AutomationID)
+	if err != nil {
+		return fmt.Errorf("failed to get followup: %w", err)
+	}
+
+	// Only update if the followup is still ongoing
+	if followup.Status == domain.FollowupStatusOngoing {
+		followup.Status = domain.FollowupStatusReplied
+		if err := p.followupRepo.Update(ctx, followup); err != nil {
+			return fmt.Errorf("failed to update followup status: %w", err)
+		}
+		log.Printf("Updated followup %s status to 'replied'", followup.ID)
 	}
 
 	log.Printf("Updated thread %s status to 'replied' for message %s", threadID, messageID)
 	return nil
 }
 
-// findMatchingThread finds a thread that matches the given message
-func (p *Poller) findMatchingThread(ctx context.Context, userID, messageID string) (string, error) {
-	// Get all threads for the user
-	// This is a simplified implementation - in production, you'd want a more efficient matching algorithm
-	// that checks In-Reply-To and References headers
+// findMatchingThread finds a thread that matches the given message using In-Reply-To and References headers
+func (p *Poller) findMatchingThread(ctx context.Context, userID, messageID, inReplyTo, references string) (string, error) {
+	// Try to match by In-Reply-To header first
+	if inReplyTo != "" {
+		thread, err := p.emailThreadRepo.GetByGmailThreadID(ctx, inReplyTo)
+		if err == nil && thread != nil && thread.UserID == userID {
+			return thread.ID, nil
+		}
+	}
 
-	// For now, we'll implement a basic matching strategy
-	// In a real implementation, you would:
-	// 1. Check if messageID is in References field of any thread
-	// 2. Check if messageID is In-Reply-To any thread's message
-	// 3. Check thread lineage
+	// Try to match by References header
+	if references != "" {
+		// Split by spaces to handle multiple message IDs in References
+		refIDs := splitReferences(references)
+		for _, refID := range refIDs {
+			thread, err := p.emailThreadRepo.GetByGmailThreadID(ctx, refID)
+			if err == nil && thread != nil && thread.UserID == userID {
+				return thread.ID, nil
+			}
+		}
+	}
 
-	// This is a placeholder that would need to be implemented based on your thread storage strategy
+	// Try to match by Message-ID (in case this is a direct reply)
+	if messageID != "" {
+		thread, err := p.emailThreadRepo.GetByGmailThreadID(ctx, messageID)
+		if err == nil && thread != nil && thread.UserID == userID {
+			return thread.ID, nil
+		}
+	}
+
 	return "", nil
+}
+
+// splitReferences splits the References header by spaces and handles angle brackets
+func splitReferences(references string) []string {
+	var ids []string
+	currentID := ""
+	inAngleBracket := false
+
+	for _, char := range references {
+		switch char {
+		case '<':
+			inAngleBracket = true
+			currentID = ""
+		case '>':
+			inAngleBracket = false
+			if currentID != "" {
+				ids = append(ids, currentID)
+			}
+		case ' ', '\t', '\n', '\r':
+			if inAngleBracket {
+				currentID += string(char)
+			}
+		default:
+			if inAngleBracket {
+				currentID += string(char)
+			}
+		}
+	}
+
+	return ids
 }

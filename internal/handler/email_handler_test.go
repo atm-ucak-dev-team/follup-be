@@ -15,7 +15,7 @@ import (
 
 // MockEmailService for testing
 type MockEmailService struct {
-	saveCredentialFunc     func(ctx context.Context, userID, email, password string) error
+	saveCredentialFunc     func(ctx context.Context, userID, email, password, imapHost, smtpHost string) error
 	getCredentialFunc      func(ctx interface{}, userID string) (*domain.EmailCredential, error)
 	registerCredentialFunc func(ctx interface{}, cred *domain.EmailCredential) error
 	sendFollowUpFunc       func(ctx interface{}, threadID, subject, body string, recipients []string) error
@@ -67,9 +67,9 @@ func (m *MockEmailService) DecryptPassword(encryptedPassword string) (string, er
 }
 
 // Implement new interface methods with correct signatures
-func (m *MockEmailService) SaveCredential(ctx context.Context, userID, email, password string) error {
+func (m *MockEmailService) SaveCredential(ctx context.Context, userID, email, password, imapHost, smtpHost string) error {
 	if m.saveCredentialFunc != nil {
-		return m.saveCredentialFunc(ctx, userID, email, password)
+		return m.saveCredentialFunc(ctx, userID, email, password, imapHost, smtpHost)
 	}
 	return nil
 }
@@ -93,7 +93,7 @@ func TestSaveCredentials_Success(t *testing.T) {
 	// Setup
 	e := echo.New()
 	mockService := &MockEmailService{
-		saveCredentialFunc: func(ctx context.Context, userID, email, password string) error {
+		saveCredentialFunc: func(ctx context.Context, userID, email, password, imapHost, smtpHost string) error {
 			return nil
 		},
 	}
@@ -246,7 +246,7 @@ func TestSaveCredentials_ServiceError(t *testing.T) {
 	// Setup
 	e := echo.New()
 	mockService := &MockEmailService{
-		saveCredentialFunc: func(ctx context.Context, userID, email, password string) error {
+		saveCredentialFunc: func(ctx context.Context, userID, email, password, imapHost, smtpHost string) error {
 			return assert.AnError
 		},
 	}

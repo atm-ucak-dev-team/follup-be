@@ -295,9 +295,9 @@ func TestListFollowups_ServiceError(t *testing.T) {
 	var response ErrorResponse
 	err = json.Unmarshal(rec.Body.Bytes(), &response)
 	assert.NoError(t, err)
-	assert.Equal(t, "UNAUTHORIZED", response.Error.Code)
+	assert.Equal(t, "FOLLOWUP_LIST_FAILED", response.Error.Code)
 
-	mockSvc.AssertNotCalled(t, "ListFollowupDetails", mock.Anything, mock.Anything, mock.Anything)
+	mockSvc.AssertExpectations(t)
 }
 
 func TestCreateFollowup_Success(t *testing.T) {
@@ -644,12 +644,12 @@ func TestCreateFollowup_NegativeRepeat(t *testing.T) {
 	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
 
 	reqBody := CreateFollowupRequest{
-		JiraTicketID:         "10001",
-		To:                   "test@example.com",
-		Subject:              "Test Subject",
-		EmailBody:            "Test body",
-		Frequency:            "0 9 * * 1",
-		Repeat:               -1,
+		JiraTicketID: "10001",
+		To:           "test@example.com",
+		Subject:      "Test Subject",
+		EmailBody:    "Test body",
+		Frequency:    "0 9 * * 1",
+		Repeat:       -1,
 	}
 
 	bodyJSON, _ := json.Marshal(reqBody)
