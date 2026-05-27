@@ -109,7 +109,7 @@ func main() {
 	jiraHandler := handler.NewJiraHandler(jiraService)
 	emailHandler := handler.NewEmailHandler(emailService)
 	automationHandler := handler.NewAutomationHandler(automationService)
-	followupHandler := handler.NewFollowupHandler(automationService)
+	followupHandler := handler.NewFollowupHandler(automationService, jiraService)
 	ticketHandler := handler.NewTicketHandler(jiraService, automationService)
 
 	log.Println("Initialized handlers")
@@ -175,6 +175,7 @@ func main() {
 
 	// Followup routes
 	api.POST("/followups", followupHandler.CreateFollowup)
+	api.GET("/followups/:id", followupHandler.GetFollowup)
 	api.GET("/followup", followupHandler.ListFollowups)
 	api.GET("/:jiraTicketID/followups", followupHandler.GetFollowupsByTicketID)
 	api.GET("/:jiraTicketID/summary", followupHandler.GetSummary)
