@@ -9,6 +9,9 @@ type Followup struct {
 	ID                   string     `json:"id"`
 	JiraTicketID         string     `json:"jira_ticket_id"`
 	JiraTicketKey        string     `json:"jira_ticket_key"`
+	JiraTicketTitle      string     `json:"jiraTicketTitle"`
+	JiraStakeholder      string     `json:"jiraStakeholder"`
+	JiraTicketStatus     string     `json:"jiraTicketStatus"`
 	UserID               string     `json:"user_id"`
 	To                   string     `json:"to"`
 	Cc                   *string    `json:"cc,omitempty"`
