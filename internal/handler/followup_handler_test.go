@@ -63,6 +63,54 @@ func (m *MockJiraServiceV2) GetIssue(ctx context.Context, cloudID, accessToken, 
 	return args.Get(0).(*domain.JiraIssueDetailResponse), args.Error(1)
 }
 
+type MockEmailThreadRepository struct {
+	mock.Mock
+}
+
+func (m *MockEmailThreadRepository) Create(ctx context.Context, thread *domain.EmailThread) error {
+	args := m.Called(ctx, thread)
+	return args.Error(0)
+}
+
+func (m *MockEmailThreadRepository) GetByID(ctx context.Context, id string) (*domain.EmailThread, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.EmailThread), args.Error(1)
+}
+
+func (m *MockEmailThreadRepository) GetByAutomationID(ctx context.Context, automationID string) ([]*domain.EmailThread, error) {
+	args := m.Called(ctx, automationID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.EmailThread), args.Error(1)
+}
+
+func (m *MockEmailThreadRepository) GetByGmailThreadID(ctx context.Context, gmailThreadID string) (*domain.EmailThread, error) {
+	args := m.Called(ctx, gmailThreadID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.EmailThread), args.Error(1)
+}
+
+func (m *MockEmailThreadRepository) Update(ctx context.Context, thread *domain.EmailThread) error {
+	args := m.Called(ctx, thread)
+	return args.Error(0)
+}
+
+func (m *MockEmailThreadRepository) UpdateThreadStatus(ctx context.Context, threadID, status string) error {
+	args := m.Called(ctx, threadID, status)
+	return args.Error(0)
+}
+
+func (m *MockEmailThreadRepository) Delete(ctx context.Context, id string) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
 type MockFollowupServiceV2 struct {
 	mock.Mock
 }
@@ -195,7 +243,8 @@ func createTestFollowupDetail(status string) *service2.FollowupDetail {
 func TestListFollowups_Success(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
+	mockEmailThreadRepo := new(MockEmailThreadRepository)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2), mockEmailThreadRepo)
 
 	expected := []*service2.FollowupDetail{
 		createTestFollowupDetail("ongoing"),
@@ -229,7 +278,8 @@ func TestListFollowups_Success(t *testing.T) {
 func TestListFollowups_WithJiraTicketFilter(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
+	mockEmailThreadRepo := new(MockEmailThreadRepository)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2), mockEmailThreadRepo)
 
 	expected := []*service2.FollowupDetail{
 		createTestFollowupDetail("ongoing"),
@@ -258,7 +308,8 @@ func TestListFollowups_WithJiraTicketFilter(t *testing.T) {
 func TestListFollowups_Unauthorized(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
+	mockEmailThreadRepo := new(MockEmailThreadRepository)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2), mockEmailThreadRepo)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/followup", nil)
 	rec := httptest.NewRecorder()
@@ -280,7 +331,8 @@ func TestListFollowups_Unauthorized(t *testing.T) {
 func TestListFollowups_ServiceError(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
+	mockEmailThreadRepo := new(MockEmailThreadRepository)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2), mockEmailThreadRepo)
 
 	mockSvc.On("ListFollowupDetails", mock.Anything, "test-user-123", "").Return(nil, errors.New("db error"))
 
@@ -303,7 +355,8 @@ func TestListFollowups_ServiceError(t *testing.T) {
 func TestCreateFollowup_Success(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
+	mockEmailThreadRepo := new(MockEmailThreadRepository)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2), mockEmailThreadRepo)
 
 	mockSvc.On("CreateRule", mock.Anything, mock.MatchedBy(func(r *domain.Followup) bool {
 		return r.UserID == "test-user-123" && r.JiraTicketID == "10001" && r.Repeat == 3 && r.FollowupConfirmation
@@ -311,6 +364,9 @@ func TestCreateFollowup_Success(t *testing.T) {
 
 	reqBody := CreateFollowupRequest{
 		JiraTicketID:         "10001",
+		JiraTicketTitle:      "Test Ticket Title",
+		JiraStakeholder:      "John Doe",
+		JiraTicketStatus:     "In Progress",
 		To:                   "test@example.com",
 		Cc:                   "cc@example.com",
 		Subject:              "Test Subject",
@@ -348,16 +404,20 @@ func TestCreateFollowup_Success(t *testing.T) {
 func TestCreateFollowup_InvalidFrequency(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
+	mockEmailThreadRepo := new(MockEmailThreadRepository)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2), mockEmailThreadRepo)
 
 	mockSvc.On("CreateRule", mock.Anything, mock.Anything).Return(errors.New("invalid frequency: cron parse error"))
 
 	reqBody := CreateFollowupRequest{
-		JiraTicketID: "10001",
-		To:           "test@example.com",
-		Subject:      "Test Subject",
-		EmailBody:    "Test body",
-		Frequency:    "bad-cron",
+		JiraTicketID:     "10001",
+		JiraTicketTitle:  "Test Ticket Title",
+		JiraStakeholder:  "John Doe",
+		JiraTicketStatus: "In Progress",
+		To:               "test@example.com",
+		Subject:          "Test Subject",
+		EmailBody:        "Test body",
+		Frequency:        "bad-cron",
 	}
 
 	bodyJSON, _ := json.Marshal(reqBody)
@@ -425,7 +485,8 @@ func TestCreateFollowup_MissingFields(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			e := echo.New()
 			mockSvc := new(MockFollowupServiceV2)
-			handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
+			mockEmailThreadRepo := new(MockEmailThreadRepository)
+			handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2), mockEmailThreadRepo)
 
 			bodyJSON, _ := json.Marshal(tt.body)
 			req := httptest.NewRequest(http.MethodPost, "/followups", bytes.NewReader(bodyJSON))
@@ -450,14 +511,18 @@ func TestCreateFollowup_MissingFields(t *testing.T) {
 func TestCreateFollowup_MissingAuthToken(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
+	mockEmailThreadRepo := new(MockEmailThreadRepository)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2), mockEmailThreadRepo)
 
 	reqBody := CreateFollowupRequest{
-		JiraTicketID: "10001",
-		To:           "test@example.com",
-		Subject:      "Test Subject",
-		EmailBody:    "Test body",
-		Frequency:    "0 9 * * 1",
+		JiraTicketID:     "10001",
+		JiraTicketTitle:  "Test Ticket Title",
+		JiraStakeholder:  "John Doe",
+		JiraTicketStatus: "In Progress",
+		To:               "test@example.com",
+		Subject:          "Test Subject",
+		EmailBody:        "Test body",
+		Frequency:        "0 9 * * 1",
 	}
 
 	bodyJSON, _ := json.Marshal(reqBody)
@@ -483,16 +548,20 @@ func TestCreateFollowup_MissingAuthToken(t *testing.T) {
 func TestCreateFollowup_ServiceError(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
+	mockEmailThreadRepo := new(MockEmailThreadRepository)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2), mockEmailThreadRepo)
 
 	mockSvc.On("CreateRule", mock.Anything, mock.Anything).Return(errors.New("db error"))
 
 	reqBody := CreateFollowupRequest{
-		JiraTicketID: "10001",
-		To:           "test@example.com",
-		Subject:      "Test Subject",
-		EmailBody:    "Test body",
-		Frequency:    "0 9 * * 1",
+		JiraTicketID:     "10001",
+		JiraTicketTitle:  "Test Ticket Title",
+		JiraStakeholder:  "John Doe",
+		JiraTicketStatus: "In Progress",
+		To:               "test@example.com",
+		Subject:          "Test Subject",
+		EmailBody:        "Test body",
+		Frequency:        "0 9 * * 1",
 	}
 
 	bodyJSON, _ := json.Marshal(reqBody)
@@ -516,14 +585,18 @@ func TestCreateFollowup_ServiceError(t *testing.T) {
 func TestCreateFollowup_InvalidToEmail(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
+	mockEmailThreadRepo := new(MockEmailThreadRepository)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2), mockEmailThreadRepo)
 
 	reqBody := CreateFollowupRequest{
-		JiraTicketID: "10001",
-		To:           "not-an-email",
-		Subject:      "Test Subject",
-		EmailBody:    "Test body",
-		Frequency:    "0 9 * * 1",
+		JiraTicketID:     "10001",
+		JiraTicketTitle:  "Test Ticket Title",
+		JiraStakeholder:  "John Doe",
+		JiraTicketStatus: "In Progress",
+		To:               "not-an-email",
+		Subject:          "Test Subject",
+		EmailBody:        "Test body",
+		Frequency:        "0 9 * * 1",
 	}
 
 	bodyJSON, _ := json.Marshal(reqBody)
@@ -547,15 +620,19 @@ func TestCreateFollowup_InvalidToEmail(t *testing.T) {
 func TestCreateFollowup_InvalidCcEmail(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
+	mockEmailThreadRepo := new(MockEmailThreadRepository)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2), mockEmailThreadRepo)
 
 	reqBody := CreateFollowupRequest{
-		JiraTicketID: "10001",
-		To:           "test@example.com",
-		Cc:           "not-an-email",
-		Subject:      "Test Subject",
-		EmailBody:    "Test body",
-		Frequency:    "0 9 * * 1",
+		JiraTicketID:     "10001",
+		JiraTicketTitle:  "Test Ticket Title",
+		JiraStakeholder:  "John Doe",
+		JiraTicketStatus: "In Progress",
+		To:               "test@example.com",
+		Cc:               "not-an-email",
+		Subject:          "Test Subject",
+		EmailBody:        "Test body",
+		Frequency:        "0 9 * * 1",
 	}
 
 	bodyJSON, _ := json.Marshal(reqBody)
@@ -579,14 +656,18 @@ func TestCreateFollowup_InvalidCcEmail(t *testing.T) {
 func TestCreateFollowup_SubjectTooLong(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
+	mockEmailThreadRepo := new(MockEmailThreadRepository)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2), mockEmailThreadRepo)
 
 	reqBody := CreateFollowupRequest{
-		JiraTicketID: "10001",
-		To:           "test@example.com",
-		Subject:      string(make([]byte, 501)),
-		EmailBody:    "Test body",
-		Frequency:    "0 9 * * 1",
+		JiraTicketID:     "10001",
+		JiraTicketTitle:  "Test Ticket Title",
+		JiraStakeholder:  "John Doe",
+		JiraTicketStatus: "In Progress",
+		To:               "test@example.com",
+		Subject:          string(make([]byte, 501)),
+		EmailBody:        "Test body",
+		Frequency:        "0 9 * * 1",
 	}
 
 	bodyJSON, _ := json.Marshal(reqBody)
@@ -610,14 +691,18 @@ func TestCreateFollowup_SubjectTooLong(t *testing.T) {
 func TestCreateFollowup_EmailBodyTooLong(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
+	mockEmailThreadRepo := new(MockEmailThreadRepository)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2), mockEmailThreadRepo)
 
 	reqBody := CreateFollowupRequest{
-		JiraTicketID: "10001",
-		To:           "test@example.com",
-		Subject:      "Test Subject",
-		EmailBody:    string(make([]byte, 10001)),
-		Frequency:    "0 9 * * 1",
+		JiraTicketID:     "10001",
+		JiraTicketTitle:  "Test Ticket Title",
+		JiraStakeholder:  "John Doe",
+		JiraTicketStatus: "In Progress",
+		To:               "test@example.com",
+		Subject:          "Test Subject",
+		EmailBody:        string(make([]byte, 10001)),
+		Frequency:        "0 9 * * 1",
 	}
 
 	bodyJSON, _ := json.Marshal(reqBody)
@@ -641,15 +726,19 @@ func TestCreateFollowup_EmailBodyTooLong(t *testing.T) {
 func TestCreateFollowup_NegativeRepeat(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
+	mockEmailThreadRepo := new(MockEmailThreadRepository)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2), mockEmailThreadRepo)
 
 	reqBody := CreateFollowupRequest{
-		JiraTicketID: "10001",
-		To:           "test@example.com",
-		Subject:      "Test Subject",
-		EmailBody:    "Test body",
-		Frequency:    "0 9 * * 1",
-		Repeat:       -1,
+		JiraTicketID:     "10001",
+		JiraTicketTitle:  "Test Ticket Title",
+		JiraStakeholder:  "John Doe",
+		JiraTicketStatus: "In Progress",
+		To:               "test@example.com",
+		Subject:          "Test Subject",
+		EmailBody:        "Test body",
+		Frequency:        "0 9 * * 1",
+		Repeat:           -1,
 	}
 
 	bodyJSON, _ := json.Marshal(reqBody)
@@ -673,7 +762,8 @@ func TestCreateFollowup_NegativeRepeat(t *testing.T) {
 func TestGetSummary_Success(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
+	mockEmailThreadRepo := new(MockEmailThreadRepository)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2), mockEmailThreadRepo)
 
 	expectedSummary := &service2.FollowupSummary{
 		JiraTicketID: "PROJ-123",
@@ -709,7 +799,8 @@ func TestGetSummary_Success(t *testing.T) {
 func TestGetSummary_Unauthorized(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
+	mockEmailThreadRepo := new(MockEmailThreadRepository)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2), mockEmailThreadRepo)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/PROJ-123/summary", nil)
 	rec := httptest.NewRecorder()
@@ -731,7 +822,8 @@ func TestGetSummary_Unauthorized(t *testing.T) {
 func TestGetSummary_MissingTicketID(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
+	mockEmailThreadRepo := new(MockEmailThreadRepository)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2), mockEmailThreadRepo)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1//summary", nil)
 	c, rec := setupEchoContextWithUser(e, req, "test-user-123")
@@ -752,7 +844,8 @@ func TestGetSummary_MissingTicketID(t *testing.T) {
 func TestGetSummary_ServiceError(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
+	mockEmailThreadRepo := new(MockEmailThreadRepository)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2), mockEmailThreadRepo)
 
 	mockSvc.On("GetSummary", mock.Anything, "test-user-123", "PROJ-123").Return(nil, errors.New("db error"))
 
@@ -777,7 +870,8 @@ func TestGetSummary_ServiceError(t *testing.T) {
 func TestGetGlobalSummary_Success(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
+	mockEmailThreadRepo := new(MockEmailThreadRepository)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2), mockEmailThreadRepo)
 
 	expectedSummary := &service2.FollowupSummary{
 		JiraTicketID: "",
@@ -810,7 +904,8 @@ func TestGetGlobalSummary_Success(t *testing.T) {
 func TestGetGlobalSummary_Unauthorized(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
+	mockEmailThreadRepo := new(MockEmailThreadRepository)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2), mockEmailThreadRepo)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/statistic", nil)
 	rec := httptest.NewRecorder()
@@ -832,7 +927,8 @@ func TestGetGlobalSummary_Unauthorized(t *testing.T) {
 func TestGetGlobalSummary_ServiceError(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
+	mockEmailThreadRepo := new(MockEmailThreadRepository)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2), mockEmailThreadRepo)
 
 	mockSvc.On("GetGlobalSummary", mock.Anything, "test-user-123").Return(nil, errors.New("db error"))
 
@@ -855,7 +951,8 @@ func TestGetGlobalSummary_ServiceError(t *testing.T) {
 func TestGetFollowupsByTicketID_Success(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
+	mockEmailThreadRepo := new(MockEmailThreadRepository)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2), mockEmailThreadRepo)
 
 	expected := []*service2.FollowupDetail{
 		createTestFollowupDetail("ongoing"),
@@ -886,7 +983,8 @@ func TestGetFollowupsByTicketID_Success(t *testing.T) {
 func TestGetFollowupsByTicketID_MissingTicketID(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
+	mockEmailThreadRepo := new(MockEmailThreadRepository)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2), mockEmailThreadRepo)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1//followups", nil)
 	c, rec := setupEchoContextWithUser(e, req, "test-user-123")
@@ -907,7 +1005,8 @@ func TestGetFollowupsByTicketID_MissingTicketID(t *testing.T) {
 func TestGetFollowupsByTicketID_Unauthorized(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
+	mockEmailThreadRepo := new(MockEmailThreadRepository)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2), mockEmailThreadRepo)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/PROJ-123/followups", nil)
 	rec := httptest.NewRecorder()

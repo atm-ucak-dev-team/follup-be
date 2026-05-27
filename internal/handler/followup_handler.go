@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/atm-ucak/follup/internal/domain"
+	"github.com/atm-ucak/follup/internal/repository"
 	service2 "github.com/atm-ucak/follup/internal/service"
 	"github.com/labstack/echo/v4"
 )
@@ -16,12 +17,14 @@ var uuidRegex = regexp.MustCompile(`^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4
 type FollowupHandler struct {
 	automationService service2.AutomationService
 	jiraService       service2.JiraService
+	emailThreadRepo   repository.EmailThreadRepository
 }
 
-func NewFollowupHandler(automationService service2.AutomationService, jiraService service2.JiraService) *FollowupHandler {
+func NewFollowupHandler(automationService service2.AutomationService, jiraService service2.JiraService, emailThreadRepo repository.EmailThreadRepository) *FollowupHandler {
 	return &FollowupHandler{
 		automationService: automationService,
 		jiraService:       jiraService,
+		emailThreadRepo:   emailThreadRepo,
 	}
 }
 
@@ -69,6 +72,15 @@ func (h *FollowupHandler) CreateFollowup(c echo.Context) error {
 	if req.Repeat < 0 {
 		return buildErrorResponse(c, http.StatusUnprocessableEntity, "INVALID_REPEAT", "repeat must not be negative")
 	}
+	if req.JiraTicketTitle == "" {
+		return buildErrorResponse(c, http.StatusBadRequest, "MISSING_JIRA_TICKET_TITLE", "jiraTicketTitle is required")
+	}
+	if req.JiraStakeholder == "" {
+		return buildErrorResponse(c, http.StatusBadRequest, "MISSING_STAKEHOLDER", "jiraStakeholder is required")
+	}
+	if req.JiraTicketStatus == "" {
+		return buildErrorResponse(c, http.StatusBadRequest, "MISSING_JIRA_TICKET_STATUS", "jiraTicketStatus is required")
+	}
 
 	var cc *string
 	if req.Cc != "" {
@@ -78,6 +90,9 @@ func (h *FollowupHandler) CreateFollowup(c echo.Context) error {
 	rule := &domain.Followup{
 		UserID:               userID,
 		JiraTicketID:         req.JiraTicketID,
+		JiraTicketTitle:      req.JiraTicketTitle,
+		JiraStakeholder:      req.JiraStakeholder,
+		JiraTicketStatus:     req.JiraTicketStatus,
 		To:                   req.To,
 		Cc:                   cc,
 		Subject:              req.Subject,
@@ -139,19 +154,34 @@ func (h *FollowupHandler) GetFollowup(c echo.Context) error {
 	}
 
 	stakeholderName := "Unassigned"
-	cloudID := getCloudIDFromContext(c)
-	accessToken := getAccessTokenFromContext(c)
-	if cloudID != "" && accessToken != "" {
-		ticketID := detail.Followup.JiraTicketKey
-		if ticketID == "" {
-			ticketID = detail.Followup.JiraTicketID
+	if detail.Followup.JiraStakeholder != "" {
+		stakeholderName = detail.Followup.JiraStakeholder
+	}
+
+	// Query email threads by automation ID
+	threads := make([]ThreadItem, 0)
+	emailThreads, err := h.emailThreadRepo.GetByAutomationID(c.Request().Context(), followupID)
+	if err == nil && emailThreads != nil {
+		for _, et := range emailThreads {
+			threads = append(threads, ThreadItem{
+				ID:            et.ID,
+				GmailThreadID: et.GmailThreadID,
+				Status:        et.Status,
+				Body:          et.Body,
+				LastSyncedAt:  et.LastSyncedAt.Format("2006-01-02T15:04:05Z"),
+			})
 		}
-		if ticketID != "" {
-			issue, err := h.jiraService.GetIssue(c.Request().Context(), cloudID, accessToken, ticketID)
-			if err == nil && issue != nil {
-				stakeholderName = issue.Stakeholder
-			}
-		}
+	}
+
+	// Generate suggestion based on status
+	suggestion := ""
+	switch detail.EffectiveStatus {
+	case "ongoing":
+		suggestion = "We're still checking and connecting you to your stakeholder"
+	case "replied":
+		suggestion = "You're connected and completed this follow up!"
+	case "expired":
+		suggestion = "Check your email regularly or start new automation"
 	}
 
 	resp := FollowupDetailResponse{
@@ -160,19 +190,22 @@ func (h *FollowupHandler) GetFollowup(c echo.Context) error {
 		LastFollowUp:    lastFollowUpStr,
 		StakeholderName: stakeholderName,
 		SendEmailEvery:  sendEmailEveryStr,
+		Threads:         threads,
+		Suggestion:      suggestion,
 	}
 
 	return c.JSON(http.StatusOK, resp)
 }
 
 type FollowupItem struct {
-	FollowupID   string  `json:"followupId"`
-	JiraTicketID string  `json:"jiraTicketId"`
-	Subject      string  `json:"subject"`
-	LastFollowUp *string `json:"lastFollowUp"`
-	NextFollowUp *string `json:"nextFollowUp"`
-	RepliedAt    *string `json:"repliedAt"`
-	Status       string  `json:"status"`
+	FollowupID      string  `json:"followupId"`
+	JiraTicketID    string  `json:"jiraTicketId"`
+	Subject         string  `json:"subject"`
+	StakeholderName string  `json:"stakeholderName"`
+	LastFollowUp    *string `json:"lastFollowUp"`
+	NextFollowUp    *string `json:"nextFollowUp"`
+	RepliedAt       *string `json:"repliedAt"`
+	Status          string  `json:"status"`
 }
 
 type FollowupSummaryResponse struct {
@@ -186,6 +219,9 @@ type FollowupSummaryResponse struct {
 // CreateFollowupRequest represents the request body for creating a followup via POST /v1/followups
 type CreateFollowupRequest struct {
 	JiraTicketID         string    `json:"jiraTicketId"`
+	JiraTicketTitle      string    `json:"jiraTicketTitle"`
+	JiraStakeholder      string    `json:"jiraStakeholder"`
+	JiraTicketStatus     string    `json:"jiraTicketStatus"`
 	To                   string    `json:"to"`
 	Cc                   string    `json:"cc,omitempty"`
 	Subject              string    `json:"subject"`
@@ -197,13 +233,24 @@ type CreateFollowupRequest struct {
 	FollowupConfirmation bool      `json:"followupConfirmation"`
 }
 
+// ThreadItem represents a single email thread in the response
+type ThreadItem struct {
+	ID            string `json:"id"`
+	GmailThreadID string `json:"gmailThreadId"`
+	Status        string `json:"status"`
+	Body          string `json:"body"`
+	LastSyncedAt  string `json:"lastSyncedAt"`
+}
+
 // FollowupDetailResponse represents the response for GET /api/v1/followups/:id
 type FollowupDetailResponse struct {
-	Subject         string  `json:"subject"`
-	Status          string  `json:"status"`
-	LastFollowUp    *string `json:"lastFollowUp"`
-	StakeholderName string  `json:"stakeholder_name"`
-	SendEmailEvery  *string `json:"send_email_every"`
+	Subject         string       `json:"subject"`
+	Status          string       `json:"status"`
+	LastFollowUp    *string      `json:"lastFollowUp"`
+	StakeholderName string       `json:"stakeholderName"`
+	SendEmailEvery  *string      `json:"sendEmailEvery"`
+	Threads         []ThreadItem `json:"threads"`
+	Suggestion      string       `json:"suggestion"`
 }
 
 // StatisticResponse represents the global summary without ticket-specific fields
@@ -246,10 +293,11 @@ func (h *FollowupHandler) ListFollowups(c echo.Context) error {
 		}
 
 		item := FollowupItem{
-			FollowupID:   r.ID,
-			JiraTicketID: ticketID,
-			Subject:      r.Subject,
-			Status:       d.EffectiveStatus,
+			FollowupID:      r.ID,
+			JiraTicketID:    ticketID,
+			Subject:         r.Subject,
+			StakeholderName: r.JiraStakeholder,
+			Status:          d.EffectiveStatus,
 		}
 
 		switch d.EffectiveStatus {

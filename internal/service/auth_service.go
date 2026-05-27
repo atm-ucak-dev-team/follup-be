@@ -111,17 +111,17 @@ func (s *AuthServiceImpl) ExchangeJiraCode(ctx context.Context, code, state stri
 	}
 
 	// Save OAuth token with TTL
-	oauthToken := &domain.OAuthToken{
-		UserID:       user.ID,
-		Provider:     "jira",
-		AccessToken:  tokenResp.AccessToken,
-		RefreshToken: tokenResp.RefreshToken,
-		ExpiresAt:    time.Now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second),
-	}
-
-	if err := s.oauthRepo.Create(ctx, oauthToken); err != nil {
-		return nil, nil, fmt.Errorf("failed to save OAuth token: %w", err)
-	}
+	// oauthToken := &domain.OAuthToken{
+	// 	UserID:       user.ID,
+	// 	Provider:     "jira",
+	// 	AccessToken:  tokenResp.AccessToken,
+	// 	RefreshToken: tokenResp.RefreshToken,
+	// 	ExpiresAt:    time.Now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second),
+	// }
+	//
+	// if err := s.oauthRepo.Create(ctx, oauthToken); err != nil {
+	// 	return nil, nil, fmt.Errorf("failed to save OAuth token: %w", err)
+	// }
 
 	// Generate app JWT for API authentication
 	appToken, err := s.generateJWT(user.ID)

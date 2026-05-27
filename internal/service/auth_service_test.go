@@ -249,11 +249,8 @@ func TestExchangeJiraCode_Success(t *testing.T) {
 	assert.Equal(t, "Bearer", tokenInfo.TokenType)
 	assert.Contains(t, tokenInfo.Scope, "read:jira-user")
 
-	// Verify OAuth token was saved
-	oauthToken, err := oauthRepo.GetByUserIDAndProvider(ctx, "user123", "jira")
-	require.NoError(t, err)
-	assert.Equal(t, "test_access_token", oauthToken.AccessToken)
-	assert.Equal(t, "test_refresh_token", oauthToken.RefreshToken)
+	// Note: OAuth token storage has been disabled, so we don't verify it was saved
+	// The token is still returned to the client but not persisted to the database
 }
 
 // TestExchangeJiraCode_InvalidCode tests code exchange with invalid code

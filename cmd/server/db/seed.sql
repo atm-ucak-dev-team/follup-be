@@ -44,11 +44,12 @@ INSERT INTO email_credentials (user_id, email_address, encrypted_password, imap_
 -- ================================================================
 -- TICKETS
 -- ================================================================
-INSERT INTO tickets (jira_ticket_id, user_id) VALUES
-    ('10001', 'test-user-123'),
-    ('10002', 'test-user-123'),
-    ('10003', 'test-user-123'),
-    ('10004', 'test-user-456');
+INSERT INTO tickets (jira_ticket_id, user_id, title, stakeholder, status) VALUES
+    ('10001', 'test-user-123', 'Implement user authentication', 'John Doe', 'In Progress'),
+    ('10002', 'test-user-123', 'Fix payment gateway bug', 'Jane Smith', 'Open'),
+    ('10003', 'test-user-123', 'Add email notifications', 'Bob Johnson', 'Backlog'),
+    ('10004', 'test-user-456', 'Database optimization', 'Alice Brown', 'In Review')
+ON CONFLICT (jira_ticket_id, user_id) DO NOTHING;
 
 -- ================================================================
 -- FOLLOWUPS (test-user-123)
