@@ -34,6 +34,9 @@ type Config struct {
 
 	// IMAP Polling
 	IMAPPollIntervalSeconds int
+
+	// Seed
+	RunSeed bool
 }
 
 // Validate checks if all required configuration fields are present and valid

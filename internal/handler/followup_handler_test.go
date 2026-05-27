@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -15,6 +16,52 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
+
+type MockJiraServiceV2 struct {
+	mock.Mock
+}
+
+func (m *MockJiraServiceV2) GetTicket(ctx interface{}, ticketID string) (*domain.JiraTicket, error) {
+	args := m.Called(ctx, ticketID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.JiraTicket), args.Error(1)
+}
+
+func (m *MockJiraServiceV2) UpdateTicketStatus(ctx interface{}, ticketID, status string) error {
+	args := m.Called(ctx, ticketID, status)
+	return args.Error(0)
+}
+
+func (m *MockJiraServiceV2) AddComment(ctx interface{}, ticketID, comment string) error {
+	args := m.Called(ctx, ticketID, comment)
+	return args.Error(0)
+}
+
+func (m *MockJiraServiceV2) GetAuthenticatedUser(ctx interface{}) (*domain.User, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.User), args.Error(1)
+}
+
+func (m *MockJiraServiceV2) GetIssues(ctx context.Context, cloudID, accessToken, search, limit string) ([]domain.JiraIssueResponse, error) {
+	args := m.Called(ctx, cloudID, accessToken, search, limit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]domain.JiraIssueResponse), args.Error(1)
+}
+
+func (m *MockJiraServiceV2) GetIssue(ctx context.Context, cloudID, accessToken, issueID string) (*domain.JiraIssueDetailResponse, error) {
+	args := m.Called(ctx, cloudID, accessToken, issueID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.JiraIssueDetailResponse), args.Error(1)
+}
 
 type MockFollowupServiceV2 struct {
 	mock.Mock
@@ -90,6 +137,14 @@ func (m *MockFollowupServiceV2) ListFollowupDetails(ctx interface{}, userID stri
 	return args.Get(0).([]*service2.FollowupDetail), args.Error(1)
 }
 
+func (m *MockFollowupServiceV2) GetFollowupDetail(ctx interface{}, id string) (*service2.FollowupDetail, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*service2.FollowupDetail), args.Error(1)
+}
+
 func (m *MockFollowupServiceV2) GetSummary(ctx interface{}, userID string, jiraTicketID string) (*service2.FollowupSummary, error) {
 	args := m.Called(ctx, userID, jiraTicketID)
 	if args.Get(0) == nil {
@@ -140,7 +195,7 @@ func createTestFollowupDetail(status string) *service2.FollowupDetail {
 func TestListFollowups_Success(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
 
 	expected := []*service2.FollowupDetail{
 		createTestFollowupDetail("ongoing"),
@@ -174,7 +229,7 @@ func TestListFollowups_Success(t *testing.T) {
 func TestListFollowups_WithJiraTicketFilter(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
 
 	expected := []*service2.FollowupDetail{
 		createTestFollowupDetail("ongoing"),
@@ -203,7 +258,7 @@ func TestListFollowups_WithJiraTicketFilter(t *testing.T) {
 func TestListFollowups_Unauthorized(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/followup", nil)
 	rec := httptest.NewRecorder()
@@ -225,7 +280,7 @@ func TestListFollowups_Unauthorized(t *testing.T) {
 func TestListFollowups_ServiceError(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
 
 	mockSvc.On("ListFollowupDetails", mock.Anything, "test-user-123", "").Return(nil, errors.New("db error"))
 
@@ -248,7 +303,7 @@ func TestListFollowups_ServiceError(t *testing.T) {
 func TestCreateFollowup_Success(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
 
 	mockSvc.On("CreateRule", mock.Anything, mock.MatchedBy(func(r *domain.Followup) bool {
 		return r.UserID == "test-user-123" && r.JiraTicketID == "10001" && r.Repeat == 3 && r.FollowupConfirmation
@@ -293,7 +348,7 @@ func TestCreateFollowup_Success(t *testing.T) {
 func TestCreateFollowup_InvalidFrequency(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
 
 	mockSvc.On("CreateRule", mock.Anything, mock.Anything).Return(errors.New("invalid frequency: cron parse error"))
 
@@ -370,7 +425,7 @@ func TestCreateFollowup_MissingFields(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			e := echo.New()
 			mockSvc := new(MockFollowupServiceV2)
-			handler := NewFollowupHandler(mockSvc)
+			handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
 
 			bodyJSON, _ := json.Marshal(tt.body)
 			req := httptest.NewRequest(http.MethodPost, "/followups", bytes.NewReader(bodyJSON))
@@ -395,7 +450,7 @@ func TestCreateFollowup_MissingFields(t *testing.T) {
 func TestCreateFollowup_MissingAuthToken(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
 
 	reqBody := CreateFollowupRequest{
 		JiraTicketID: "10001",
@@ -428,7 +483,7 @@ func TestCreateFollowup_MissingAuthToken(t *testing.T) {
 func TestCreateFollowup_ServiceError(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
 
 	mockSvc.On("CreateRule", mock.Anything, mock.Anything).Return(errors.New("db error"))
 
@@ -461,7 +516,7 @@ func TestCreateFollowup_ServiceError(t *testing.T) {
 func TestCreateFollowup_InvalidToEmail(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
 
 	reqBody := CreateFollowupRequest{
 		JiraTicketID: "10001",
@@ -492,7 +547,7 @@ func TestCreateFollowup_InvalidToEmail(t *testing.T) {
 func TestCreateFollowup_InvalidCcEmail(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
 
 	reqBody := CreateFollowupRequest{
 		JiraTicketID: "10001",
@@ -524,7 +579,7 @@ func TestCreateFollowup_InvalidCcEmail(t *testing.T) {
 func TestCreateFollowup_SubjectTooLong(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
 
 	reqBody := CreateFollowupRequest{
 		JiraTicketID: "10001",
@@ -555,7 +610,7 @@ func TestCreateFollowup_SubjectTooLong(t *testing.T) {
 func TestCreateFollowup_EmailBodyTooLong(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
 
 	reqBody := CreateFollowupRequest{
 		JiraTicketID: "10001",
@@ -586,7 +641,7 @@ func TestCreateFollowup_EmailBodyTooLong(t *testing.T) {
 func TestCreateFollowup_NegativeRepeat(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
 
 	reqBody := CreateFollowupRequest{
 		JiraTicketID: "10001",
@@ -618,7 +673,7 @@ func TestCreateFollowup_NegativeRepeat(t *testing.T) {
 func TestGetSummary_Success(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
 
 	expectedSummary := &service2.FollowupSummary{
 		JiraTicketID: "PROJ-123",
@@ -654,7 +709,7 @@ func TestGetSummary_Success(t *testing.T) {
 func TestGetSummary_Unauthorized(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/PROJ-123/summary", nil)
 	rec := httptest.NewRecorder()
@@ -676,7 +731,7 @@ func TestGetSummary_Unauthorized(t *testing.T) {
 func TestGetSummary_MissingTicketID(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1//summary", nil)
 	c, rec := setupEchoContextWithUser(e, req, "test-user-123")
@@ -697,7 +752,7 @@ func TestGetSummary_MissingTicketID(t *testing.T) {
 func TestGetSummary_ServiceError(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
 
 	mockSvc.On("GetSummary", mock.Anything, "test-user-123", "PROJ-123").Return(nil, errors.New("db error"))
 
@@ -722,7 +777,7 @@ func TestGetSummary_ServiceError(t *testing.T) {
 func TestGetGlobalSummary_Success(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
 
 	expectedSummary := &service2.FollowupSummary{
 		JiraTicketID: "",
@@ -755,7 +810,7 @@ func TestGetGlobalSummary_Success(t *testing.T) {
 func TestGetGlobalSummary_Unauthorized(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/statistic", nil)
 	rec := httptest.NewRecorder()
@@ -777,7 +832,7 @@ func TestGetGlobalSummary_Unauthorized(t *testing.T) {
 func TestGetGlobalSummary_ServiceError(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
 
 	mockSvc.On("GetGlobalSummary", mock.Anything, "test-user-123").Return(nil, errors.New("db error"))
 
@@ -800,7 +855,7 @@ func TestGetGlobalSummary_ServiceError(t *testing.T) {
 func TestGetFollowupsByTicketID_Success(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
 
 	expected := []*service2.FollowupDetail{
 		createTestFollowupDetail("ongoing"),
@@ -831,7 +886,7 @@ func TestGetFollowupsByTicketID_Success(t *testing.T) {
 func TestGetFollowupsByTicketID_MissingTicketID(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1//followups", nil)
 	c, rec := setupEchoContextWithUser(e, req, "test-user-123")
@@ -852,7 +907,7 @@ func TestGetFollowupsByTicketID_MissingTicketID(t *testing.T) {
 func TestGetFollowupsByTicketID_Unauthorized(t *testing.T) {
 	e := echo.New()
 	mockSvc := new(MockFollowupServiceV2)
-	handler := NewFollowupHandler(mockSvc)
+	handler := NewFollowupHandler(mockSvc, new(MockJiraServiceV2))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/PROJ-123/followups", nil)
 	rec := httptest.NewRecorder()

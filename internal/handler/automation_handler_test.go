@@ -91,6 +91,14 @@ func (m *MockFollowupService) ListFollowupDetails(ctx interface{}, userID string
 	return args.Get(0).([]*service2.FollowupDetail), args.Error(1)
 }
 
+func (m *MockFollowupService) GetFollowupDetail(ctx interface{}, id string) (*service2.FollowupDetail, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*service2.FollowupDetail), args.Error(1)
+}
+
 func (m *MockFollowupService) GetSummary(ctx interface{}, userID string, jiraTicketID string) (*service2.FollowupSummary, error) {
 	args := m.Called(ctx, userID, jiraTicketID)
 	if args.Get(0) == nil {
