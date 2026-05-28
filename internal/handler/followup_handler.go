@@ -16,16 +16,18 @@ import (
 var uuidRegex = regexp.MustCompile(`^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$`)
 
 type FollowupHandler struct {
-	automationService service2.AutomationService
-	jiraService       service2.JiraService
-	emailThreadRepo   repository.EmailThreadRepository
+	automationService   service2.AutomationService
+	jiraService         service2.JiraService
+	emailThreadRepo     repository.EmailThreadRepository
+	emailCredentialRepo repository.EmailCredentialRepository
 }
 
-func NewFollowupHandler(automationService service2.AutomationService, jiraService service2.JiraService, emailThreadRepo repository.EmailThreadRepository) *FollowupHandler {
+func NewFollowupHandler(automationService service2.AutomationService, jiraService service2.JiraService, emailThreadRepo repository.EmailThreadRepository, emailCredentialRepo repository.EmailCredentialRepository) *FollowupHandler {
 	return &FollowupHandler{
-		automationService: automationService,
-		jiraService:       jiraService,
-		emailThreadRepo:   emailThreadRepo,
+		automationService:   automationService,
+		jiraService:         jiraService,
+		emailThreadRepo:     emailThreadRepo,
+		emailCredentialRepo: emailCredentialRepo,
 	}
 }
 
@@ -142,6 +144,15 @@ func (h *FollowupHandler) GetFollowup(c echo.Context) error {
 		return buildErrorResponse(c, http.StatusForbidden, "FORBIDDEN", "you don't have permission to view this followup")
 	}
 
+	// Fetch user's email credential for "from" field
+	fromEmail := ""
+	emailCred, err := h.emailCredentialRepo.GetByUserID(c.Request().Context(), userID)
+	if err != nil {
+		log.Printf("Error retrieving email credential for user %s: %v", userID, err)
+	} else {
+		fromEmail = emailCred.EmailAddress
+	}
+
 	var lastFollowUpStr *string
 	if detail.Followup.LastRunAt != nil {
 		s := detail.Followup.LastRunAt.Format("2006-01-02T15:04:05Z")
@@ -204,6 +215,9 @@ func (h *FollowupHandler) GetFollowup(c echo.Context) error {
 		Suggestion:       suggestion,
 		JiraTicketTitle:  detail.Followup.JiraTicketTitle,
 		JiraTicketStatus: detail.Followup.JiraTicketStatus,
+		From:             fromEmail,
+		To:               detail.Followup.To,
+		Cc:               detail.Followup.Cc,
 	}
 
 	return c.JSON(http.StatusOK, resp)
@@ -266,6 +280,9 @@ type FollowupDetailResponse struct {
 	Suggestion       string       `json:"suggestion"`
 	JiraTicketTitle  string       `json:"jiraTicketTitle"`
 	JiraTicketStatus string       `json:"jiraTicketStatus"`
+	From             string       `json:"from"`
+	To               string       `json:"to"`
+	Cc               *string      `json:"cc"`
 }
 
 // StatisticResponse represents the global summary without ticket-specific fields

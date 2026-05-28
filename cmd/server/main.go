@@ -109,7 +109,7 @@ func main() {
 	jiraHandler := handler.NewJiraHandler(jiraService)
 	emailHandler := handler.NewEmailHandler(emailService)
 	automationHandler := handler.NewAutomationHandler(automationService)
-	followupHandler := handler.NewFollowupHandler(automationService, jiraService, emailThreadRepo)
+	followupHandler := handler.NewFollowupHandler(automationService, jiraService, emailThreadRepo, emailCredentialRepo)
 	ticketHandler := handler.NewTicketHandler(jiraService, automationService)
 
 	log.Println("Initialized handlers")
