@@ -196,6 +196,7 @@ func (h *FollowupHandler) GetFollowup(c echo.Context) error {
 	resp := FollowupDetailResponse{
 		Subject:          detail.Followup.Subject,
 		Status:           detail.EffectiveStatus,
+		ExpireDateTime:   detail.Followup.ExpireDateTime.Format("2006-01-02T15:04:05Z"),
 		LastFollowUp:     lastFollowUpStr,
 		StakeholderName:  stakeholderName,
 		SendEmailEvery:   sendEmailEveryStr,
@@ -257,6 +258,7 @@ type ThreadItem struct {
 type FollowupDetailResponse struct {
 	Subject          string       `json:"subject"`
 	Status           string       `json:"status"`
+	ExpireDateTime   string       `json:"expireDateTime"`
 	LastFollowUp     *string      `json:"lastFollowUp"`
 	StakeholderName  string       `json:"stakeholderName"`
 	SendEmailEvery   *string      `json:"sendEmailEvery"`
